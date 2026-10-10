@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fish Hunt 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#063a52; --panel:rgba(8,55,70,.85); --txt:#eafff6; --accent:#ff9f6e;
+    --hp:#ff3b5c; --coin:#ffd23f; --good:#38ff8f; --bad:#ff4b4b;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--txt);
+    padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+  #c{position:fixed;inset:0;touch-action:none;}
+  #hud{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;z-index:5;pointer-events:none;}
+  .pill{background:var(--panel);border:1px solid #0af6;border-radius:10px;padding:6px 10px;font-size:13px;backdrop-filter:blur(4px);}
+  #hearts{display:flex;gap:2px;}
+  #hearts svg{image-rendering:pixelated;display:block;}
+  #pauseBtn{pointer-events:auto;cursor:pointer;background:#2a5a6e;color:var(--txt);font-weight:700;border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;}
+  #left{display:flex;flex-direction:column;gap:4px;}
+  #right{display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none;}
+  #shopBtn{pointer-events:auto;}
+  #weaponbar{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5;max-width:94vw;overflow-x:auto;}
+  .wbtn{pointer-events:auto;background:var(--panel);border:1px solid #0af6;border-radius:8px;padding:6px 8px;font-size:11px;cursor:pointer;color:var(--txt);white-space:nowrap;}
+  .wbtn.active{border-color:var(--accent);box-shadow:0 0 8px var(--accent);}
+  #shopBtn{cursor:pointer;background:var(--coin);color:#221800;font-weight:700;border:none;border-radius:8px;padding:6px 12px;font-size:13px;}
+  #crosshair{position:fixed;top:50%;left:50%;width:20px;height:20px;margin:-10px;border:2px solid #fff9;border-radius:50%;pointer-events:none;z-index:4;}
+  .modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20;}
+  .hidden{display:none !important;}
+  .card{background:var(--panel);border:1px solid var(--accent);border-radius:14px;padding:18px;max-width:92vw;width:380px;max-height:85vh;overflow-y:auto;}
+  .card h2{margin-top:0;color:var(--accent);}
+  .item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #ffffff22;gap:8px;}
+  .item div.name{font-weight:600;}
+  .item div.meta{font-size:11px;opacity:.8;}
+  .buy{background:var(--good);color:#063;border:none;border-radius:6px;padding:6px 10px;font-weight:700;cursor:pointer;font-size:12px;}
+  .buy:disabled{background:#556;color:#99a;cursor:not-allowed;}
+  .closeBtn{margin-top:10px;width:100%;padding:8px;background:var(--accent);border:none;border-radius:8px;font-weight:700;cursor:pointer;}
+  #go h1{color:var(--bad);}
+  #toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#000c;padding:8px 14px;border-radius:8px;font-size:13px;z-index:15;opacity:0;transition:opacity .3s;pointer-events:none;}
+  #flash{position:fixed;inset:0;background:var(--bad);opacity:0;pointer-events:none;z-index:6;transition:opacity .2s;}
+  #fishAhead{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);
+    border-radius:10px;padding:6px 16px;font-size:14px;font-weight:700;z-index:5;white-space:nowrap;backdrop-filter:blur(4px);}
+  #handIcon{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom,0px));right:14px;font-size:46px;z-index:6;pointer-events:none;transform-origin:85% 85%;filter:drop-shadow(0 2px 3px #000a);}
+  @keyframes handSwing{0%{transform:rotate(0) translate(0,0) scale(1);}30%{transform:rotate(-38deg) translate(-14px,-10px) scale(1.08);}65%{transform:rotate(12deg) translate(5px,3px) scale(1);}100%{transform:rotate(0) translate(0,0) scale(1);}}
+  .swing{animation:handSwing .22s ease-out;}
+
+  /* ---- Minecraft-style splash screen ---- */
+  #startScreen{background:#1a1a1a;}
+  .mc-bg{position:absolute;inset:0;background-image:
+      linear-gradient(135deg, #5b3a1e 25%, transparent 25%), linear-gradient(225deg, #5b3a1e 25%, transparent 25%),
+      linear-gradient(45deg, #5b3a1e 25%, transparent 25%), linear-gradient(315deg, #5b3a1e 25%, #3e2712 25%);
+    background-position:20px 0,20px 0,0 0,0 0; background-size:40px 40px; background-color:#3e2712; opacity:0.55;}
+  .mc-card{position:relative;z-index:1;background:none;border:none;max-width:94vw;width:420px;text-align:center;}
+  .mc-title{font-family:"Press Start 2P",monospace;font-size:26px;line-height:1.5;color:#7fffa0;text-shadow:3px 3px 0 #1a3d1a,6px 6px 0 #000;margin:0 0 4px 0;letter-spacing:1px;}
+  .mc-splash{font-family:"Press Start 2P",monospace;font-size:11px;color:#ffe34d;display:inline-block;transform:rotate(-14deg);animation:mcSplashPulse 0.9s ease-in-out infinite alternate;margin-bottom:14px;}
+  @keyframes mcSplashPulse{from{transform:rotate(-14deg) scale(1);}to{transform:rotate(-14deg) scale(1.12);}}
+  .mc-btn{font-family:"Press Start 2P",monospace;font-size:13px;width:100%;padding:14px 10px;margin:6px 0;cursor:pointer;color:#dfdfdf;
+    background:#6b6b6b;border:3px solid #272727;border-right-color:#1a1a1a;border-bottom-color:#1a1a1a;border-top-color:#9a9a9a;border-left-color:#9a9a9a;
+    box-shadow:inset 0 0 0 2px #4a4a4a; text-shadow:2px 2px 0 #000;}
+  .mc-btn:active{filter:brightness(0.85);}
+  .mc-sub{font-family:system-ui,sans-serif;font-size:12.5px;color:#cfcfcf;margin:10px 0 16px 0;line-height:1.5;}
+  .mc-version{position:absolute;bottom:6px;left:10px;font-family:"Press Start 2P",monospace;font-size:9px;color:#ffffff99;z-index:1;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<div id="crosshair"></div>
+<div id="fishAhead">🔭 Scanning the reef...</div>
+<div id="handIcon">👊</div>
+
+<div id="hud">
+  <div id="left">
+    <div class="pill" id="heartsPill"><div id="hearts"></div></div>
+    <div class="pill" id="statusPill">Status: Healthy</div>
+    <div class="pill" id="levelPill">Level 1</div>
+  </div>
+  <div id="right">
+    <div class="pill">🪙 <b id="coins">0</b></div>
+    <div class="pill">🐟 Kills: <b id="kills">0</b></div>
+    <button id="shopBtn">🛒 SHOP</button>
+    <button id="pauseBtn">⏸ PAUSE</button>
+  </div>
+</div>
+
+<div id="weaponbar"></div>
+
+<div id="shop" class="modal hidden">
+  <div class="card">
+    <h2>Weapon Shop</h2>
+    <div id="shopList"></div>
+    <div class="item" style="border-top:2px solid var(--accent);margin-top:6px;padding-top:10px;">
+      <div><div class="name">Bullets (AK47)</div><div class="meta">10 bullets — 5 coins</div></div>
+      <button class="buy" id="buyAmmo">Buy</button>
+    </div>
+    <button class="closeBtn" id="closeShop">Close</button>
+  </div>
+</div>
+
+<div id="go" class="modal hidden">
+  <div class="card" style="text-align:center;">
+    <h1>You Were Eaten 🦴</h1>
+    <p>Kills: <b id="goKills">0</b> &nbsp; Coins earned: <b id="goCoins">0</b></p>
+    <button class="closeBtn" id="restartBtn">Restart (Level 1)</button>
+  </div>
+</div>
+
+<div id="pauseOverlay" class="modal hidden">
+  <div class="card" style="text-align:center;">
+    <h2>⏸ Paused</h2>
+    <button class="closeBtn" id="resumeBtn">Resume</button>
+    <button class="closeBtn" id="pauseCreditsBtn" style="background:#9b5de5;color:#fff;">Credits</button>
+    <button class="closeBtn" id="pauseRestartBtn" style="background:var(--bad);color:#fff;">Restart</button>
+  </div>
+</div>
+
+<div id="credits" class="modal hidden">
+  <div class="card" style="text-align:center;">
+    <h2>🐠 Credits</h2>
+    <div id="creditsList"></div>
+    <button class="closeBtn" id="closeCredits">Close</button>
+  </div>
+</div>
+
+<div id="startScreen" class="modal">
+  <div class="mc-bg"></div>
+  <div class="mc-card">
+    <h1 class="mc-title">FISH<br>HUNT 3D</h1>
+    <div class="mc-splash" id="splashText">now with sharks!</div>
+    <p class="mc-sub">A fish is coming for you. Tap it to fight back, earn coins, and buy better gear at the shop before it's your turn to be dinner.</p>
+    <button class="mc-btn hidden" id="continueBtn">Continue</button>
+    <button class="mc-btn" id="startBtn">Start Game</button>
+    <button class="mc-btn" id="startCreditsBtn">Credits</button>
+  </div>
+  <div class="mc-version">Fish Hunt 3D — v2</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------- CONFIG ----------
+const WEAPONS = {
+  fist:    {name:"Fist",         eff:0.1, price:0,   cd:600, maxRange:6},
+  knife:   {name:"Knife",        eff:0.5, price:3,   cd:450, maxRange:7},
+  wspear:  {name:"Wooden Spear", eff:0.9, price:10,  cd:500, maxRange:10},
+  bow:     {name:"Bow & Arrow",  eff:1.2, price:15,  cd:400, ranged:true},
+  mspear:  {name:"Metal Spear",  eff:1.5, price:20,  cd:400, maxRange:11},
+  dspear:  {name:"Diamond Spear",eff:5,   price:50,  cd:350, maxRange:12},
+  trident: {name:"Trident",      eff:7,   price:60,  cd:320, maxRange:13},
+  ak47:    {name:"AK47",         eff:10,  price:70,  cd:150, gun:true, ranged:true},
+  coppermac:{name:"Copper Machete",eff:0.9,price:5,  cd:420, maxRange:1250},
+  harpoon: {name:"Harpoon Gun",  eff:15,  price:110, cd:280, gun:true, ranged:true},
+  fryingpan:{name:"Frying Pan",  eff:1,   price:20,  cd:470, maxRange:950, healOnKill:25},
+  amethystmac:{name:"Amethyst Machete",eff:2.2,price:20,cd:340, maxRange:1450},
+  laser:   {name:"Laser Spear",  eff:20,  price:200, cd:260, maxRange:16},
+  laserrifle:{name:"Laser Rifle",eff:10,  price:150, cd:140, gun:true, ranged:true},
+  bomb:    {name:"Bomb",         eff:0,   price:10,  cd:900, consumable:true, special:'bomb'}
+};
+const FISH = {
+  normal: {name:"Normal Fish",  hp:4,  speed:3.0, color:0xff8c42, dmg:5},
+  metal:  {name:"Metal Fish",   hp:7,  speed:2.0, color:0x9aa0a6, dmg:8,  metallic:true},
+  diamond:{name:"Diamond Fish", hp:13, speed:1.7, color:0x7fffd4, dmg:12, metallic:true},
+  puffer: {name:"Pufferfish",   hp:9,  speed:2.5, color:0xffe34d, dmg:6,  poison:true},
+  glass:  {name:"Glass Fish",   hp:6,  speed:4.5, color:0xaee8ff, dmg:4,  glass:true},
+  nuke:   {name:"Nuke Fish",    hp:5,  speed:3.8, color:0x4dff6b, dmg:5,  nuke:true},
+  shark:  {name:"Shark Fish",   hp:18, speed:5.2, color:0x37474f, dmg:16, metallic:true},
+  jelly:  {name:"Jellyfish",    hp:8,  speed:2.2, color:0xcc99ff, dmg:3,  glass:true, stun:true},
+  golden: {name:"Golden Fish",  hp:3,  speed:6.0, color:0xffd700, dmg:2,  coinValue:3, golden:true},
+  angler: {name:"Anglerfish",   hp:10, speed:2.8, color:0x4a4a6a, dmg:9},
+  flash:  {name:"Flash Fish",   hp:5,  speed:9.0, color:0x00e5ff, dmg:7},
+  ironscale: {name:"Ironscale Fish", hp:12, speed:3.2, color:0x455a64, dmg:11, metallic:true, rangedResist:0.25},
+  bulletproof: {name:"Bulletproof Fish", hp:1, speed:2.6, color:0x263238, dmg:10, metallic:true, bulletHitsRequired:30},
+  invisofish: {name:"Invisofish", hp:6, speed:7.5, color:0xf4faff, dmg:6, glass:true, teleport:true}
+};
+const HARD_LEVEL = 5; // Ironscale Fish only appears from this level on, once you own a gun or bow
+const DMG_MULT = 10;
+const FAR_Z = -45, CONTACT_OFFSET = 1.6;
+const HITBOX_RADIUS = 900; // generous invisible click-target so fish are always easy to tap/click
+const SPEED_ZONE_RADIUS = 35; // separate, realistic distance that actually controls the fast/slow approach zones
+
+const LEVEL_THRESHOLDS = [0, 7, 16, 28, 44];
+const LEVEL_POOLS = [
+  ['normal','glass'],
+  ['normal','glass','metal','puffer','flash','invisofish'],
+  ['normal','glass','metal','puffer','flash','invisofish','diamond','nuke'],
+  ['normal','glass','metal','puffer','flash','invisofish','diamond','nuke','shark','jelly'],
+  ['normal','glass','metal','puffer','flash','invisofish','diamond','nuke','shark','jelly','golden','angler']
+];
+function levelForKills(kills){
+  let lvl = 1;
+  for(let i=0;i<LEVEL_THRESHOLDS.length;i++) if(kills>=LEVEL_THRESHOLDS[i]) lvl=i+1;
+  if(kills >= 44) lvl = 5 + Math.floor((kills-44)/12); // levels keep climbing forever
+  return lvl;
+}
+function poolForKills(kills){
+  const idx = Math.min(levelForKills(kills),5)-1;
+  return LEVEL_POOLS[idx];
+}
+function levelSpeedMult(kills){
+  return 1.5 + (levelForKills(kills)-1)*0.45; // fish appear & swim faster every level, forever — higher levels get brutal
+}
+function levelBobMult(kills){
+  return 0.5 + (levelForKills(kills)-1)*0.18; // side-to-side weaving starts gentle, grows with level
+}
+function levelPowerMult(kills){
+  const lvl = levelForKills(kills);
+  return 1 + (lvl-1)*0.15; // fish get tougher & hit harder every level, forever
+}
+function visibleHalfWidthAt(zDepth){
+  const distance = camera.position.z - zDepth;
+  const halfHeight = Math.tan((camera.fov*Math.PI/180)/2) * distance;
+  return halfHeight * camera.aspect;
+}
+function pickSpawnPoint(){
+  const roll = Math.random();
+  const y = Math.random()*3-1;
+  if(roll<0.45) return new THREE.Vector3((Math.random()-0.5)*8, y, FAR_Z);
+  const z = -8-Math.random()*14;
+  const halfW = visibleHalfWidthAt(z);
+  const x = halfW * 0.9; // just inside the edge of view on THIS device, so it's visible as it swims in
+  return new THREE.Vector3(roll<0.72 ? -x : x, y, z);
+}
+
+// ---------- STATE ----------
+let state = {
+  hp:100, coins:0, kills:0,
+  owned:{fist:true}, current:'fist', ammo:0,
+  poisonUntil:0, stunUntil:0, alive:true, lastAttack:0,
+  started:false, paused:false
+};
+
+const SPLASH_TEXTS = ["now with sharks!","watch out for pufferfish!","bring bullets!","it bites back!","coral reef approved!","don't get stung!","100% nuke-powered!","hearts regenerate!"];
+document.getElementById('splashText').textContent = SPLASH_TEXTS[Math.floor(Math.random()*SPLASH_TEXTS.length)];
+
+// ✏️ EDIT YOUR CREDITS HERE — add/remove/change entries freely
+const CREDITS = [
+  {role:"Developed by", name:"Nikita Levchenko"},
+  {role:"Original Idea by", name:"ChezGuy"}
+];
+
+// ---------- THREE SETUP ----------
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x075269);
+scene.fog = new THREE.FogExp2(0x053a4d, 0.014);
+const camera = new THREE.PerspectiveCamera(100, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0,1,8);
+addEventListener('resize', resize); resize();
+
+scene.add(new THREE.AmbientLight(0x6fb8cc, 0.55));
+const dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(3,8,5); scene.add(dl);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:0xe8c27e}));
+floor.rotation.x = -Math.PI/2; floor.position.y=-6; scene.add(floor);
+
+// coral reef decorations
+const coralColors = [0xff6f91, 0xffa630, 0x9b5de5, 0xf15bb5, 0xff8e3c];
+const seaweeds = [];
+for(let i=0;i<26;i++){
+  const color = coralColors[Math.floor(Math.random()*coralColors.length)];
+  const mat = new THREE.MeshStandardMaterial({color, roughness:0.7});
+  const x = (Math.random()-0.5)*22, z = -Math.random()*44;
+  let piece;
+  const kind = Math.random();
+  if(kind<0.4){
+    piece = new THREE.Mesh(new THREE.ConeGeometry(0.4+Math.random()*0.3, 1+Math.random(), 6), mat);
+  } else if(kind<0.75){
+    piece = new THREE.Mesh(new THREE.TorusKnotGeometry(0.35,0.12,40,6), mat);
+  } else {
+    piece = new THREE.Mesh(new THREE.SphereGeometry(0.4+Math.random()*0.25,8,8), mat);
+  }
+  piece.position.set(x,-6+0.4,z);
+  piece.rotation.y = Math.random()*Math.PI;
+  scene.add(piece);
+}
+for(let i=0;i<16;i++){
+  const x=(Math.random()-0.5)*20, z=-Math.random()*44;
+  const h = 1.2+Math.random()*1.6;
+  const weed = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.1,h,6), new THREE.MeshStandardMaterial({color:0x2fbf71}));
+  weed.position.set(x,-6+h/2,z);
+  scene.add(weed); seaweeds.push({mesh:weed, offset:Math.random()*10});
+}
+
+const bubbles=[];
+for(let i=0;i<24;i++){
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.05+Math.random()*0.1,6,6), new THREE.MeshBasicMaterial({color:0x99ddff, transparent:true, opacity:0.35}));
+  b.position.set((Math.random()-0.5)*20, Math.random()*10-6, -Math.random()*40);
+  scene.add(b); bubbles.push(b);
+}
+
+// ---------- FISH-SHAPED MODEL ----------
+function fishProfileShape(){
+  const s = new THREE.Shape();
+  s.moveTo(0.9,0);
+  s.quadraticCurveTo(0.6,0.5, 0,0.42);
+  s.quadraticCurveTo(-0.55,0.35,-0.75,0.1);
+  s.lineTo(-1.15,0.45);
+  s.lineTo(-1.15,-0.45);
+  s.lineTo(-0.75,-0.1);
+  s.quadraticCurveTo(-0.55,-0.35,0,-0.42);
+  s.quadraticCurveTo(0.6,-0.5,0.9,0);
+  return s;
+}
+function makeFish(type, cfg){
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color:cfg.color, metalness:cfg.metallic?0.9:0.15, roughness:cfg.metallic?0.25:0.55,
+    transparent:!!cfg.glass, opacity:cfg.glass?0.55:1, side:THREE.DoubleSide
+  });
+  const geo = new THREE.ExtrudeGeometry(fishProfileShape(), {depth:0.32, bevelEnabled:true, bevelThickness:0.05, bevelSize:0.05, bevelSegments:2, curveSegments:10});
+  geo.center();
+  const body = new THREE.Mesh(geo, mat);
+  g.add(body);
+
+  const finMat = new THREE.MeshStandardMaterial({color:cfg.color, transparent:true, opacity:0.8, side:THREE.DoubleSide});
+  const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.4,3), finMat);
+  dorsal.rotation.z = Math.PI; dorsal.scale.set(1,1,0.15); dorsal.position.set(0.05,0.42,0);
+  g.add(dorsal);
+  const finL = new THREE.Mesh(new THREE.ConeGeometry(0.18,0.32,3), finMat);
+  finL.scale.set(1,1,0.1); finL.rotation.z = -1.1; finL.position.set(0.1,-0.1,0.2);
+  g.add(finL);
+  const finR = finL.clone(); finR.position.z=-0.2; g.add(finR);
+
+  const eyeMat = new THREE.MeshBasicMaterial({color:0x111111});
+  [0.17,-0.17].forEach(zz=>{
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
+    eye.position.set(0.68,0.1,zz); g.add(eye);
+  });
+
+  if(cfg.poison){
+    const spikes = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62,0), new THREE.MeshStandardMaterial({color:0xfff07a, wireframe:true}));
+    g.add(spikes);
+  }
+  if(cfg.nuke){
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85,0.05,8,16), new THREE.MeshBasicMaterial({color:0xff3b5c}));
+    ring.rotation.x = Math.PI/2; g.add(ring); g.userData.ring=ring;
+    mat.emissive = new THREE.Color(0xff5500);
+    mat.emissiveIntensity = 0.4;
+    g.userData.glowMat = mat;
+  }
+  if(cfg.stun){
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.7,10,6,0,Math.PI*2,0,Math.PI/2), new THREE.MeshStandardMaterial({color:0xe6ccff, transparent:true, opacity:0.4}));
+    dome.position.y=0.3; g.add(dome);
+  }
+  if(cfg.golden){
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.8,0.04,8,16), new THREE.MeshBasicMaterial({color:0xffe98a}));
+    glow.rotation.x = Math.PI/2; g.add(glow); g.userData.ring=glow;
+  }
+  const hitSphere = new THREE.Mesh(new THREE.SphereGeometry(HITBOX_RADIUS,8,8), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
+  g.add(hitSphere);
+  g.rotation.y = Math.PI/2;
+  g.userData.bobPhase = Math.random()*Math.PI*2;
+  g.userData.type = type;
+  g.userData.cfg = cfg;
+  g.userData.hp = cfg.hp;
+  g.userData.spawnTime = performance.now();
+  g.userData.dir = 'in';
+  g.userData.engaged = false;
+  g.userData.fuseStart = null;
+  return g;
+}
+
+// ---------- EXPLOSIONS ----------
+const explosions = [];
+function spawnExplosion(pos, color, big){
+  const n = big?22:12;
+  for(let i=0;i<n;i++){
+    const m = new THREE.Mesh(new THREE.SphereGeometry(big?0.12:0.07,6,6), new THREE.MeshBasicMaterial({color, transparent:true, opacity:1}));
+    m.position.copy(pos);
+    const v = new THREE.Vector3((Math.random()-0.5),(Math.random()-0.5),(Math.random()-0.5)).normalize().multiplyScalar((big?6:3)+Math.random()*2);
+    scene.add(m);
+    explosions.push({mesh:m, vel:v, life:0, maxLife:big?1.0:0.6});
+  }
+  const flashMesh = new THREE.Mesh(new THREE.SphereGeometry(big?0.3:0.15,10,10), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9}));
+  flashMesh.position.copy(pos); scene.add(flashMesh);
+  explosions.push({mesh:flashMesh, vel:new THREE.Vector3(0,0,0), life:0, maxLife:big?0.5:0.3, grow:big?14:8});
+}
+function updateExplosions(delta){
+  for(let i=explosions.length-1;i>=0;i--){
+    const e = explosions[i];
+    e.life += delta;
+    e.mesh.position.addScaledVector(e.vel, delta);
+    e.vel.multiplyScalar(0.9);
+    if(e.grow) e.mesh.scale.multiplyScalar(1+delta*e.grow*0.5);
+    const t = e.life/e.maxLife;
+    e.mesh.material.opacity = Math.max(0,1-t);
+    if(e.life>=e.maxLife){ scene.remove(e.mesh); explosions.splice(i,1); }
+  }
+}
+
+// ---------- SINGLE ACTIVE FISH ----------
+let currentFish = null;
+let nextSpawnAt = performance.now()+500;
+function spawnNextFish(){
+  let pool = poolForKills(state.kills);
+  const hasRangedWeapon = state.owned.bow || state.owned.ak47 || state.owned.harpoon || state.owned.laserrifle;
+  const hasGunWeapon = state.owned.ak47 || state.owned.harpoon || state.owned.laserrifle;
+  if(levelForKills(state.kills) >= HARD_LEVEL && hasRangedWeapon){
+    pool = pool.concat(['ironscale','ironscale']); // weighted in a bit more once unlocked
+  }
+  if(levelForKills(state.kills) >= HARD_LEVEL && hasGunWeapon){
+    pool = pool.concat(['bulletproof']);
+  }
+  const type = pool[Math.floor(Math.random()*pool.length)];
+  const cfg = FISH[type];
+  const f = makeFish(type,cfg);
+  const pow = levelPowerMult(state.kills);
+  f.userData.hp = Math.round(cfg.hp * pow);
+  f.userData.dmg = Math.round(cfg.dmg * pow);
+  if(cfg.bulletHitsRequired) f.userData.bulletHitsLeft = cfg.bulletHitsRequired;
+  const sp = pickSpawnPoint();
+  f.position.copy(sp);
+  f.userData.spawnPoint = sp;
+  scene.add(f);
+  currentFish = f;
+  document.getElementById('fishAhead').textContent = '🐟 Ahead: ' + cfg.name;
+}
+
+// ---------- UI WIRING ----------
+const heartsEl=document.getElementById('hearts'), coinsEl=document.getElementById('coins'),
+  killsEl=document.getElementById('kills'), statusPill=document.getElementById('statusPill'),
+  levelPill=document.getElementById('levelPill'),
+  weaponbar=document.getElementById('weaponbar'), shopEl=document.getElementById('shop'),
+  shopList=document.getElementById('shopList'), goEl=document.getElementById('go'),
+  toast=document.getElementById('toast'), flash=document.getElementById('flash'),
+  pauseOverlay=document.getElementById('pauseOverlay'), creditsEl=document.getElementById('credits'),
+  startScreen=document.getElementById('startScreen');
+
+// ---------- MINECRAFT-STYLE PIXEL HEARTS ----------
+const HEART_BITMAP = [
+  "011001100",
+  "111111111",
+  "111111111",
+  "111111111",
+  "011111110",
+  "001111100",
+  "000111000",
+  "000010000"
+];
+function heartSVG(kind){ // 'full' | 'half' | 'empty'
+  const full = kind==='full', half = kind==='half';
+  const fillL = full||half ? '#e6372f' : '#3a3a3a';
+  const fillR = full ? '#e6372f' : '#3a3a3a';
+  let rects='';
+  for(let r=0;r<HEART_BITMAP.length;r++){
+    for(let c=0;c<9;c++){
+      if(HEART_BITMAP[r][c]==='1'){
+        const color = c<4 ? fillL : (c===4 ? (full?fillL:(half?fillL:fillR)) : fillR);
+        rects += `<rect x="${c}" y="${r}" width="1" height="1" fill="${color}"/>`;
+      }
+    }
+  }
+  return `<svg viewBox="0 0 9 8" width="34" height="30" shape-rendering="crispEdges">${rects}</svg>`;
+}
+const TOTAL_HEARTS = 2;
+function renderHearts(hp){
+  const clamped = Math.max(0,Math.min(100,hp));
+  const segment = 100/TOTAL_HEARTS;
+  const fullCount = Math.floor(clamped/segment);
+  const hasHalf = (clamped%segment) >= segment/2;
+  const total = TOTAL_HEARTS;
+  let html='';
+  for(let i=0;i<total;i++){
+    if(i<fullCount) html += heartSVG('full');
+    else if(i===fullCount && hasHalf) html += heartSVG('half');
+    else html += heartSVG('empty');
+  }
+  heartsEl.innerHTML = html;
+}
+
+// ---------- SAVE PROGRESS (browser localStorage) ----------
+const SAVE_KEY = 'fishHunt3D_save_v1';
+function saveProgress(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      coins: state.coins, owned: state.owned, current: state.current,
+      ammo: state.ammo, kills: state.kills, hp: state.hp, bombs: state.bombs||0
+    }));
+  }catch(e){ /* storage unavailable, ignore */ }
+}
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearProgress(){
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+}
+
+function renderCredits(){
+  document.getElementById('creditsList').innerHTML = CREDITS.map((c,i)=>
+    `<div class="item"><div class="name">${c.role}</div><div class="meta"${i===0?' id="devNameSecret"':''}>${c.name}</div></div>`
+  ).join('');
+  const secretEl = document.getElementById('devNameSecret');
+  if(secretEl) secretEl.onclick = handleSecretNameClick;
+}
+renderCredits();
+
+// secret test cheat: click the developer's name 10x in a row to unlock all weapons
+let secretClickCount=0, secretClickLast=0;
+function handleSecretNameClick(){
+  const now = performance.now();
+  if(now - secretClickLast > 1500) secretClickCount=0;
+  secretClickLast = now;
+  secretClickCount++;
+  if(secretClickCount>=10){
+    secretClickCount=0;
+    Object.keys(WEAPONS).forEach(k=>{ state.owned[k]=true; });
+    state.ammo = Math.max(state.ammo, 50);
+    state.bombs = Math.max(state.bombs||0, 5);
+    showToast('🔓 All weapons unlocked!');
+    updateHUD();
+    saveProgress();
+  }
+}
+
+function showToast(msg){toast.textContent=msg;toast.style.opacity=1;clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.style.opacity=0,1600);}
+
+const WEAPON_ICON = {
+  fist:'👊', knife:'🔪', wspear:'🔱', bow:'🏹', mspear:'🔱', dspear:'🔱', trident:'🔱',
+  ak47:'🔫', coppermac:'🔪', harpoon:'🔫', fryingpan:'🍳', amethystmac:'🔪', laser:'⚡',
+  laserrifle:'🔫', bomb:'💣'
+};
+function updateHandIcon(){
+  const el = document.getElementById('handIcon');
+  if(el) el.textContent = WEAPON_ICON[state.current] || '👊';
+}
+
+function renderWeaponBar(){
+  weaponbar.innerHTML='';
+  Object.keys(WEAPONS).forEach(k=>{
+    if(!state.owned[k]) return;
+    const w=WEAPONS[k];
+    const btn=document.createElement('button');
+    btn.className='wbtn'+(state.current===k?' active':'');
+    btn.textContent = w.name + (w.gun? ` (${state.ammo})` : (w.consumable? ` (${state.bombs||0})` : ''));
+    btn.onclick=()=>{state.current=k; renderWeaponBar(); updateHandIcon(); saveProgress();};
+    weaponbar.appendChild(btn);
+  });
+}
+
+function renderShop(){
+  shopList.innerHTML='';
+  Object.keys(WEAPONS).forEach(k=>{
+    if(k==='fist') return;
+    const w=WEAPONS[k];
+    const owned = state.owned[k];
+    const row=document.createElement('div'); row.className='item';
+    const rangeTxt = w.consumable ? 'one-use, 5s fuse' : (w.maxRange ? `range ${w.maxRange}` : 'long range');
+    const effTxt = w.consumable ? 'Explosive' : `Eff ${w.eff}`;
+    row.innerHTML = `<div><div class="name">${w.name}</div><div class="meta">${effTxt} — ${w.price} coins${w.gun?' (+bullets)':''} — ${rangeTxt}</div></div>`;
+    const btn=document.createElement('button'); btn.className='buy';
+    if(w.consumable){
+      btn.textContent = `Buy (+1)`;
+      btn.disabled = state.coins < w.price;
+      btn.onclick=()=>{
+        if(state.coins>=w.price){
+          state.coins-=w.price; state.owned[k]=true; state.bombs=(state.bombs||0)+1;
+          if(!state.current || !state.owned[state.current]) state.current=k;
+          showToast(`Bought a bomb!`); updateHUD(); renderShop(); updateHandIcon(); saveProgress();
+        }
+      };
+    } else {
+      btn.textContent = owned? 'Owned':'Buy';
+      btn.disabled = owned || state.coins < w.price;
+      btn.onclick=()=>{
+        if(state.coins>=w.price && !owned){
+          state.coins-=w.price; state.owned[k]=true; state.current=k;
+          showToast(`Bought ${w.name}!`); updateHUD(); renderShop(); updateHandIcon(); saveProgress();
+        }
+      };
+    }
+    row.appendChild(btn); shopList.appendChild(row);
+  });
+}
+document.getElementById('shopBtn').onclick=()=>{renderShop(); shopEl.classList.remove('hidden');};
+document.getElementById('closeShop').onclick=()=>shopEl.classList.add('hidden');
+document.getElementById('buyAmmo').onclick=()=>{
+  if(state.coins>=5){state.coins-=5; state.ammo+=10; showToast('Bought 10 bullets!'); updateHUD(); renderShop(); saveProgress();}
+};
+document.getElementById('restartBtn').onclick=()=>restart();
+
+const savedProgress = loadProgress();
+if(savedProgress){
+  const cBtn = document.getElementById('continueBtn');
+  cBtn.classList.remove('hidden');
+  cBtn.textContent = 'Continue';
+  document.getElementById('startBtn').textContent = '🔄 New Game';
+}
+document.getElementById('continueBtn').onclick=()=>{
+  Object.assign(state, {
+    coins: savedProgress.coins||0, owned: savedProgress.owned||{fist:true},
+    current: savedProgress.current||'fist', ammo: savedProgress.ammo||0,
+    kills: savedProgress.kills||0, hp: (typeof savedProgress.hp==='number'? savedProgress.hp:100),
+    bombs: savedProgress.bombs||0, poisonUntil:0, stunUntil:0
+  });
+  startScreen.classList.add('hidden');
+  state.started=true;
+  nextSpawnAt = performance.now()+500;
+  updateHUD(); updateHandIcon();
+};
+document.getElementById('startBtn').onclick=()=>{
+  clearProgress();
+  Object.assign(state, {coins:0, owned:{fist:true}, current:'fist', ammo:0, kills:0, hp:100, bombs:0, poisonUntil:0, stunUntil:0});
+  startScreen.classList.add('hidden');
+  state.started=true;
+  nextSpawnAt = performance.now()+500;
+  updateHUD(); updateHandIcon();
+};
+document.getElementById('startCreditsBtn').onclick=()=>{renderCredits(); creditsEl.classList.remove('hidden');};
+document.getElementById('closeCredits').onclick=()=>creditsEl.classList.add('hidden');
+
+document.getElementById('pauseBtn').onclick=()=>{
+  if(!state.started || !state.alive) return;
+  state.paused = !state.paused;
+  pauseOverlay.classList.toggle('hidden', !state.paused);
+};
+document.getElementById('resumeBtn').onclick=()=>{ state.paused=false; pauseOverlay.classList.add('hidden'); };
+document.getElementById('pauseCreditsBtn').onclick=()=>{renderCredits(); creditsEl.classList.remove('hidden');};
+document.getElementById('pauseRestartBtn').onclick=()=>{ pauseOverlay.classList.add('hidden'); restart(); };
+addEventListener('keydown', e=>{
+  if(e.key==='Escape' && state.started && state.alive){
+    state.paused = !state.paused;
+    pauseOverlay.classList.toggle('hidden', !state.paused);
+  }
+});
+
+function updateHUD(){
+  renderHearts(state.hp);
+  coinsEl.textContent = state.coins;
+  killsEl.textContent = state.kills;
+  {
+    const now2 = performance.now(), flags=[];
+    if(now2<state.poisonUntil) flags.push('☠️ Poisoned');
+    if(now2<state.stunUntil) flags.push('🪼 Stunned');
+    statusPill.textContent = flags.length ? 'Status: '+flags.join(' + ') : 'Status: Healthy';
+  }
+  levelPill.textContent = 'Level '+levelForKills(state.kills);
+  renderWeaponBar();
+}
+
+// ---------- ATTACK ----------
+const raycaster = new THREE.Raycaster();
+function triggerHandSwing(){
+  const el = document.getElementById('handIcon');
+  el.classList.remove('swing'); void el.offsetWidth; el.classList.add('swing');
+}
+function placeBomb(){
+  if(!state.bombs || state.bombs<=0){ showToast('No bombs left! Buy more in shop.'); return; }
+  const w = WEAPONS.bomb;
+  const now = performance.now();
+  if(now - state.lastAttack < w.cd) return;
+  state.lastAttack = now;
+  state.bombs--;
+  triggerHandSwing();
+  const targetFish = currentFish;
+  const placePos = targetFish ? targetFish.position.clone() : camera.position.clone().add(new THREE.Vector3(0,0,-14));
+  const bombMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35,8,8), new THREE.MeshStandardMaterial({color:0x222222, emissive:0xff2200, emissiveIntensity:0.5}));
+  bombMesh.position.copy(placePos);
+  scene.add(bombMesh);
+  showToast('💣 Bomb placed! 5 second fuse...');
+  updateHUD(); saveProgress();
+  setTimeout(()=>{
+    scene.remove(bombMesh);
+    spawnExplosion(bombMesh.position.clone(), 0xffaa00, true);
+    if(currentFish && currentFish.position.distanceTo(bombMesh.position) < 6){
+      currentFish.userData.hp -= 1000;
+      currentFish.userData.bulletHitsLeft = 0;
+      if(currentFish.userData.hp<=0 || currentFish.userData.cfg.bulletHitsRequired) killFish(currentFish);
+    }
+    updateHUD();
+  }, 5000);
+}
+function attack(ndcX, ndcY){
+  if(!state.started || state.paused || !state.alive) return;
+  const w = WEAPONS[state.current];
+  if(w.special==='bomb'){ placeBomb(); return; }
+  if(!currentFish) return;
+  const now = performance.now();
+  if(now < state.stunUntil){ showToast('🪼 Stunned! Can\'t attack yet.'); return; }
+  if(w.maxRange && currentFish.position.distanceTo(camera.position) > w.maxRange){
+    showToast('Too far away — let it get closer!');
+    return;
+  }
+  if(now - state.lastAttack < w.cd) return;
+  if(w.gun){
+    if(state.ammo<=0){ showToast('Out of ammo! Buy bullets in shop.'); return; }
+    state.ammo--;
+  }
+  state.lastAttack = now;
+  triggerHandSwing();
+  raycaster.setFromCamera({x:ndcX,y:ndcY}, camera);
+  const hits = raycaster.intersectObject(currentFish, true);
+  if(hits.length){
+    if(currentFish.userData.cfg.nuke && currentFish.userData.fuseStart){
+      currentFish.userData.fuseStart = null;
+      showToast('💣 Defused!');
+    }
+    if(currentFish.userData.cfg.bulletHitsRequired){
+      if(!w.gun){
+        showToast('🛡️ Bulletproof! Only guns work on this one.');
+      } else {
+        currentFish.userData.bulletHitsLeft--;
+        if(currentFish.userData.bulletHitsLeft<=0){
+          killFish(currentFish);
+        } else {
+          const pushDir = currentFish.position.clone().sub(camera.position).normalize();
+          currentFish.position.addScaledVector(pushDir, 2);
+          currentFish.userData.engaged = false;
+        }
+      }
+      updateHUD();
+      return;
+    }
+    const resist = (w.ranged && currentFish.userData.cfg.rangedResist) ? currentFish.userData.cfg.rangedResist : 1;
+    currentFish.userData.hp -= w.eff * DMG_MULT * resist;
+    if(resist<1) showToast('🛡️ Ironscale resists ranged hits — try melee!');
+    if(currentFish.userData.hp<=0){
+      killFish(currentFish);
+    } else {
+      // vicious, but flinches back a little from a hit before closing in again
+      const pushDir = currentFish.position.clone().sub(camera.position).normalize();
+      currentFish.position.addScaledVector(pushDir, 5.5);
+      currentFish.userData.engaged = false;
+    }
+  }
+  updateHUD();
+}
+let lastTouchAt = 0;
+function handleTapInput(clientX, clientY){
+  const x=(clientX/innerWidth)*2-1, y=-(clientY/innerHeight)*2+1;
+  attack(x,y);
+}
+canvas.addEventListener('touchstart', e=>{
+  lastTouchAt = performance.now();
+  if(e.touches && e.touches.length){ e.preventDefault(); handleTapInput(e.touches[0].clientX, e.touches[0].clientY); }
+}, {passive:false});
+canvas.addEventListener('mousedown', e=>{
+  if(performance.now() - lastTouchAt < 800) return; // avoid double-firing from synthetic mouse events after touch
+  handleTapInput(e.clientX, e.clientY);
+});
+if(window.PointerEvent){
+  canvas.addEventListener('pointerdown', e=>{
+    if(e.pointerType==='touch') return; // already handled by touchstart above
+    if(performance.now() - lastTouchAt < 800) return;
+    handleTapInput(e.clientX, e.clientY);
+  });
+}
+
+function killFish(f){
+  spawnExplosion(f.position.clone(), f.userData.cfg.color, f.userData.cfg.nuke);
+  scene.remove(f);
+  if(currentFish===f) currentFish=null;
+  state.coins += (f.userData.cfg.coinValue || 1); state.kills++;
+  const w = WEAPONS[state.current];
+  if(w && w.healOnKill){
+    state.hp = Math.min(100, state.hp + w.healOnKill);
+    showToast('🍳 Hearty meal! +'+w.healOnKill+' HP');
+  }
+  nextSpawnAt = performance.now() + 500/levelSpeedMult(state.kills);
+  document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
+  updateHUD();
+  saveProgress();
+}
+
+function damagePlayer(amount, poison){
+  if(!state.alive) return;
+  state.hp -= amount;
+  flash.style.opacity=0.5; setTimeout(()=>flash.style.opacity=0,150);
+  if(poison) state.poisonUntil = performance.now()+5000;
+  if(state.hp<=0){ state.hp=0; gameOver(); }
+  updateHUD();
+  if(state.alive) saveProgress();
+}
+
+function gameOver(){
+  state.alive=false;
+  document.getElementById('goKills').textContent=state.kills;
+  document.getElementById('goCoins').textContent=state.coins;
+  goEl.classList.remove('hidden');
+}
+function restart(){
+  clearProgress();
+  state = {hp:100,coins:0,kills:0,owned:{fist:true},current:'fist',ammo:0,bombs:0,poisonUntil:0,stunUntil:0,alive:true,lastAttack:0,started:true,paused:false};
+  updateHandIcon();
+  if(currentFish){ scene.remove(currentFish); currentFish=null; }
+  nextSpawnAt = performance.now()+500;
+  goEl.classList.add('hidden');
+  document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
+  updateHUD();
+}
+
+// ---------- LOOP ----------
+let lastPoisonTick=0, lastRegenTick=0, lastTime=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now = performance.now();
+  const delta = Math.min((now-lastTime)/1000, 0.1); lastTime=now;
+
+  if(state.started && !state.paused && state.alive){
+    if(!currentFish && now>=nextSpawnAt) spawnNextFish();
+
+    if(currentFish){
+      const f = currentFish, cfg = f.userData.cfg;
+      if(f.userData.ring) f.userData.ring.rotation.z += delta*4;
+
+      const distNow = f.position.distanceTo(camera.position);
+      let exploded = false;
+      if(cfg.nuke){
+        const pulse = 0.4 + 0.5*Math.abs(Math.sin(now*0.012));
+        if(f.userData.glowMat) f.userData.glowMat.emissiveIntensity = pulse;
+        if(distNow <= SPEED_ZONE_RADIUS){
+          if(!f.userData.fuseStart) f.userData.fuseStart = now;
+          if(now - f.userData.fuseStart >= 1000){
+            spawnExplosion(f.position.clone(), 0xff5a2a, true);
+            damagePlayer(25,false);
+            showToast('💥 Nuke fish exploded!');
+            scene.remove(f); currentFish=null; nextSpawnAt = now+600;
+            document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
+            exploded = true;
+          }
+        } else {
+          f.userData.fuseStart = null;
+        }
+      }
+
+      if(exploded){
+        // handled above
+      } else if(f.userData.engaged){
+        // vicious: once it reaches you, it stays and keeps attacking instead of backing off
+        f.position.y += Math.sin(now*0.006)*0.01;
+        f.lookAt(camera.position);
+        if(now - f.userData.lastBite >= 1300){
+          damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
+          if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung again!'); }
+          else showToast('🩸 It won\'t let go!');
+          f.userData.lastBite = now;
+        }
+      } else {
+        const lvl = levelForKills(state.kills);
+        const distToPlayer = f.position.distanceTo(camera.position);
+        let zoneFactor;
+        if(distToPlayer > SPEED_ZONE_RADIUS){
+          zoneFactor = 5; // way faster while still far out, so you're not waiting around
+        } else if(distToPlayer > SPEED_ZONE_RADIUS - 10){
+          zoneFactor = 0.5; // slows down as it closes in on you
+        } else {
+          zoneFactor = (lvl<=10) ? 0.5 : 1; // existing near-player assist on early levels
+        }
+        const effSpeed = cfg.speed * levelSpeedMult(state.kills) * zoneFactor;
+        const flatTarget = new THREE.Vector3(camera.position.x, f.position.y, camera.position.z);
+        const dir = flatTarget.clone().sub(f.position).normalize();
+        f.position.addScaledVector(dir, effSpeed*delta);
+        const bobMult = levelBobMult(state.kills);
+        f.position.y = f.userData.spawnPoint.y + Math.sin(now*0.004*bobMult + f.userData.bobPhase)*1.3*bobMult;
+        f.lookAt(camera.position);
+        if(cfg.teleport && distToPlayer > SPEED_ZONE_RADIUS){
+          if(!f.userData.nextTeleport) f.userData.nextTeleport = now + 700 + Math.random()*600;
+          if(now >= f.userData.nextTeleport){
+            f.position.lerp(camera.position, 0.3 + Math.random()*0.2);
+            spawnExplosion(f.position.clone(), 0xffffff, false);
+            f.userData.nextTeleport = now + 700 + Math.random()*600;
+          }
+        }
+        if(f.position.distanceTo(camera.position) <= CONTACT_OFFSET+0.8){
+          damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
+          if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung! You are stunned!'); }
+          else showToast('🩸 The fish bit you!');
+          f.userData.engaged = true;
+          f.userData.lastBite = now;
+        }
+      }
+    }
+    if(now < state.poisonUntil && now - lastPoisonTick > 1000){
+      lastPoisonTick = now; damagePlayer(2,false);
+    }
+    if(now >= state.poisonUntil && state.hp < 100 && now - lastRegenTick > 2000){
+      lastRegenTick = now;
+      state.hp = Math.min(100, state.hp + 1);
+      updateHUD();
+    }
+  }
+  updateExplosions(delta);
+  seaweeds.forEach(s=>{ s.mesh.rotation.z = Math.sin(now*0.0015 + s.offset)*0.15; });
+  bubbles.forEach(b=>{ b.position.y += delta*0.6; if(b.position.y>6){b.position.y=-6; b.position.x=(Math.random()-0.5)*20; b.position.z=-Math.random()*40;} });
+
+  renderer.render(scene,camera);
+}
+updateHUD();
+updateHandIcon();
+loop();
+setInterval(()=>{ if(state.started && state.alive) saveProgress(); }, 4000);
+addEventListener('beforeunload', ()=>{ if(state.started && state.alive) saveProgress(); });
+</script>
+</body>
+</html>
