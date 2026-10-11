@@ -19,7 +19,7 @@
   .pill{background:var(--panel);border:1px solid #0af6;border-radius:10px;padding:6px 10px;font-size:13px;backdrop-filter:blur(4px);}
   #hearts{display:flex;gap:2px;}
   #hearts svg{image-rendering:pixelated;display:block;}
-  #pauseBtn{pointer-events:auto;cursor:pointer;background:#2a5a6e;color:var(--txt);font-weight:700;border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;}
+  #pauseBtn,#muteBtn{pointer-events:auto;cursor:pointer;background:#2a5a6e;color:var(--txt);font-weight:700;border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;}
   #left{display:flex;flex-direction:column;gap:4px;}
   #right{display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none;}
   #shopBtn{pointer-events:auto;}
@@ -83,6 +83,7 @@
     <div class="pill">🐟 Kills: <b id="kills">0</b></div>
     <button id="shopBtn">🛒 SHOP</button>
     <button id="pauseBtn">⏸ PAUSE</button>
+    <button id="muteBtn">🔊</button>
   </div>
 </div>
 
@@ -93,7 +94,7 @@
     <h2>Weapon Shop</h2>
     <div id="shopList"></div>
     <div class="item" style="border-top:2px solid var(--accent);margin-top:6px;padding-top:10px;">
-      <div><div class="name">Bullets (AK47)</div><div class="meta">10 bullets — 5 coins</div></div>
+      <div><div class="name">Ammo (shared: bow, AK47, harpoon, laser rifle)</div><div class="meta">+10 ammo — 5 coins</div></div>
       <button class="buy" id="buyAmmo">Buy</button>
     </div>
     <button class="closeBtn" id="closeShop">Close</button>
@@ -134,6 +135,9 @@
     <button class="mc-btn hidden" id="continueBtn">Continue</button>
     <button class="mc-btn" id="startBtn">Start Game</button>
     <button class="mc-btn" id="startCreditsBtn">Credits</button>
+    <label class="mc-sub" style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" id="lowPowerToggle"> Low Power Mode (older/slower devices)
+    </label>
   </div>
   <div class="mc-version">Fish Hunt 3D — v2</div>
 </div>
@@ -147,17 +151,17 @@ const WEAPONS = {
   fist:    {name:"Fist",         eff:0.1, price:0,   cd:600, maxRange:6},
   knife:   {name:"Knife",        eff:0.5, price:3,   cd:450, maxRange:7},
   wspear:  {name:"Wooden Spear", eff:0.9, price:10,  cd:500, maxRange:10},
-  bow:     {name:"Bow & Arrow",  eff:1.2, price:15,  cd:400, ranged:true},
-  mspear:  {name:"Metal Spear",  eff:1.5, price:20,  cd:400, maxRange:11},
-  dspear:  {name:"Diamond Spear",eff:5,   price:50,  cd:350, maxRange:12},
-  trident: {name:"Trident",      eff:7,   price:60,  cd:320, maxRange:13},
-  ak47:    {name:"AK47",         eff:10,  price:70,  cd:150, gun:true, ranged:true},
-  coppermac:{name:"Copper Machete",eff:0.9,price:5,  cd:420, maxRange:1250},
-  harpoon: {name:"Harpoon Gun",  eff:15,  price:110, cd:280, gun:true, ranged:true},
-  fryingpan:{name:"Frying Pan",  eff:1,   price:20,  cd:470, maxRange:950, healOnKill:25},
-  amethystmac:{name:"Amethyst Machete",eff:2.2,price:20,cd:340, maxRange:1450},
-  laser:   {name:"Laser Spear",  eff:20,  price:200, cd:260, maxRange:16},
-  laserrifle:{name:"Laser Rifle",eff:10,  price:150, cd:140, gun:true, ranged:true},
+  bow:     {name:"Bow & Arrow",  eff:1.2, price:15,  cd:400, gun:true, ranged:true, ammoLabel:'arrows'},
+  mspear:  {name:"Metal Spear",  eff:1.5, price:20,  cd:400, maxRange:10},
+  dspear:  {name:"Diamond Spear",eff:5,   price:50,  cd:350, maxRange:10},
+  trident: {name:"Trident",      eff:7,   price:60,  cd:320, maxRange:10},
+  ak47:    {name:"AK47",         eff:10,  price:70,  cd:150, gun:true, ranged:true, ammoLabel:'bullets'},
+  coppermac:{name:"Copper Machete",eff:0.9,price:5,  cd:420, maxRange:10},
+  harpoon: {name:"Harpoon Gun",  eff:15,  price:110, cd:280, gun:true, ranged:true, ammoLabel:'bolts'},
+  fryingpan:{name:"Frying Pan",  eff:0.6, price:20,  cd:470, maxRange:10, healOnKill:10},
+  amethystmac:{name:"Amethyst Machete",eff:2.2,price:20,cd:340, maxRange:10},
+  laser:   {name:"Laser Spear",  eff:20,  price:200, cd:260, maxRange:10},
+  laserrifle:{name:"Laser Rifle",eff:10,  price:150, cd:140, gun:true, ranged:true, ammoLabel:'cells'},
   bomb:    {name:"Bomb",         eff:0,   price:10,  cd:900, consumable:true, special:'bomb'}
 };
 const FISH = {
@@ -225,6 +229,112 @@ function pickSpawnPoint(){
   return new THREE.Vector3(roll<0.72 ? -x : x, y, z);
 }
 
+// ---------- SOUND (synthesized in-browser, no external audio files) ----------
+let audioCtx=null;
+function getAudioCtx(){
+  if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(audioCtx && audioCtx.state==='suspended'){ audioCtx.resume().catch(()=>{}); }
+  return audioCtx;
+}
+function playTone(freq,dur,type,vol){
+  const ctx=getAudioCtx(); if(!ctx) return;
+  try{
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
+    osc.type=type||'sine'; osc.frequency.value=freq;
+    gain.gain.setValueAtTime(vol!=null?vol:0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function playNoise(dur,vol){
+  const ctx=getAudioCtx(); if(!ctx) return;
+  try{
+    const bufferSize=Math.floor(ctx.sampleRate*(dur||0.3));
+    const buffer=ctx.createBuffer(1,bufferSize,ctx.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1)*(1-i/bufferSize);
+    const src=ctx.createBufferSource(); src.buffer=buffer;
+    const gain=ctx.createGain(); gain.gain.value=vol!=null?vol:0.2;
+    src.connect(gain); gain.connect(ctx.destination);
+    src.start();
+  }catch(e){}
+}
+const sfx = {
+  attack: ()=>{ if(!audioMuted) playTone(280,0.07,'square',0.07); },
+  hit: ()=>{ if(!audioMuted) playTone(520,0.05,'square',0.09); },
+  kill: ()=>{ if(!audioMuted){ playNoise(0.2,0.15); playTone(880,0.08,'sine',0.08); } },
+  bite: ()=>{ if(!audioMuted) playTone(130,0.16,'sawtooth',0.14); },
+  coin: ()=>{ if(!audioMuted) playTone(1000,0.06,'sine',0.08); },
+  buy: ()=>{ if(!audioMuted) playTone(660,0.1,'triangle',0.12); },
+  explosion: ()=>{ if(!audioMuted){ playNoise(0.45,0.28); playTone(70,0.3,'sawtooth',0.2); } },
+  pause: ()=>{ if(!audioMuted) playTone(400,0.06,'sine',0.07); },
+  button: ()=>{ if(!audioMuted) playTone(500,0.04,'sine',0.05); }
+};
+
+// ---------- AMBIENT REEF SOUNDSCAPE (calm pad drone + water texture + soft chimes) ----------
+const MUTE_KEY = 'fishHunt3D_muted';
+let audioMuted = false;
+try{ audioMuted = localStorage.getItem(MUTE_KEY) === '1'; }catch(e){}
+let ambienceStarted = false;
+let ambienceGain = null;
+function startAmbience(){
+  const ctx = getAudioCtx(); if(!ctx || ambienceStarted) return;
+  ambienceStarted = true;
+  const master = ctx.createGain();
+  master.gain.value = 0;
+  master.connect(ctx.destination);
+  ambienceGain = master;
+  master.gain.linearRampToValueAtTime(audioMuted ? 0 : 0.16, ctx.currentTime + 2.5);
+
+  // soft chord drone, slowly drifting
+  [110, 164.81, 220].forEach((f,i)=>{
+    const osc = ctx.createOscillator(); osc.type='sine'; osc.frequency.value=f;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.04 + i*0.015;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 2.5;
+    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+    const g = ctx.createGain(); g.gain.value = 0.22;
+    osc.connect(g); g.connect(master);
+    osc.start(); lfo.start();
+  });
+
+  // gentle filtered water-wash noise
+  const bufferSize = ctx.sampleRate * 4;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let lastOut = 0;
+  for(let i=0;i<bufferSize;i++){
+    const white = Math.random()*2-1;
+    lastOut = (lastOut + 0.02*white) / 1.02;
+    data[i] = lastOut * 3.2;
+  }
+  const noiseSrc = ctx.createBufferSource(); noiseSrc.buffer=buffer; noiseSrc.loop=true;
+  const noiseFilter = ctx.createBiquadFilter(); noiseFilter.type='lowpass'; noiseFilter.frequency.value=420;
+  const noiseGain = ctx.createGain(); noiseGain.gain.value=0.3;
+  noiseSrc.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(master);
+  noiseSrc.start();
+
+  // occasional soft high chimes, like reef sparkle
+  (function scheduleChime(){
+    const delay = 4000 + Math.random()*6000;
+    setTimeout(()=>{
+      if(!audioMuted){
+        const notes=[660,880,990,1320,1760];
+        playTone(notes[Math.floor(Math.random()*notes.length)], 1.3, 'sine', 0.025);
+      }
+      scheduleChime();
+    }, delay);
+  })();
+}
+function setMuted(m){
+  audioMuted = m;
+  try{ localStorage.setItem(MUTE_KEY, m?'1':'0'); }catch(e){}
+  if(ambienceGain){
+    const ctx = getAudioCtx();
+    ambienceGain.gain.linearRampToValueAtTime(m?0:0.16, ctx.currentTime+0.6);
+  }
+}
+
 // ---------- STATE ----------
 let state = {
   hp:100, coins:0, kills:0,
@@ -242,10 +352,34 @@ const CREDITS = [
   {role:"Original Idea by", name:"ChezGuy"}
 ];
 
+// ---------- WEBGL CHECK & LOW POWER MODE ----------
+function hasWebGL(){
+  try{
+    const c=document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl')));
+  }catch(e){ return false; }
+}
+if(!hasWebGL()){
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;color:#fff;background:#063a52;min-height:100%;display:flex;align-items:center;justify-content:center;">This game needs WebGL (3D graphics support), which this browser/device doesn\'t provide. It won\'t run here — sorry!</div>';
+  throw new Error('No WebGL support — stopping game init');
+}
+const LOW_POWER_KEY = 'fishHunt3D_lowpower';
+function detectLowPowerDefault(){
+  const ua = navigator.userAgent || '';
+  if(/Kobo|Kindle|E ?Ink/i.test(ua)) return true;
+  if(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2) return true;
+  return false;
+}
+let LOW_POWER = false;
+try{
+  const stored = localStorage.getItem(LOW_POWER_KEY);
+  LOW_POWER = stored!==null ? stored==='1' : detectLowPowerDefault();
+}catch(e){ LOW_POWER = detectLowPowerDefault(); }
+
 // ---------- THREE SETUP ----------
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const renderer = new THREE.WebGLRenderer({canvas, antialias:!LOW_POWER, powerPreference: LOW_POWER?'low-power':'default'});
+renderer.setPixelRatio(LOW_POWER ? 1 : Math.min(devicePixelRatio,2));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -266,7 +400,7 @@ floor.rotation.x = -Math.PI/2; floor.position.y=-6; scene.add(floor);
 // coral reef decorations
 const coralColors = [0xff6f91, 0xffa630, 0x9b5de5, 0xf15bb5, 0xff8e3c];
 const seaweeds = [];
-for(let i=0;i<26;i++){
+for(let i=0;i<(LOW_POWER?8:26);i++){
   const color = coralColors[Math.floor(Math.random()*coralColors.length)];
   const mat = new THREE.MeshStandardMaterial({color, roughness:0.7});
   const x = (Math.random()-0.5)*22, z = -Math.random()*44;
@@ -283,17 +417,17 @@ for(let i=0;i<26;i++){
   piece.rotation.y = Math.random()*Math.PI;
   scene.add(piece);
 }
-for(let i=0;i<16;i++){
+for(let i=0;i<(LOW_POWER?5:16);i++){
   const x=(Math.random()-0.5)*20, z=-Math.random()*44;
   const h = 1.2+Math.random()*1.6;
-  const weed = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.1,h,6), new THREE.MeshStandardMaterial({color:0x2fbf71}));
+  const weed = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.1,h,LOW_POWER?4:6), new THREE.MeshStandardMaterial({color:0x2fbf71}));
   weed.position.set(x,-6+h/2,z);
   scene.add(weed); seaweeds.push({mesh:weed, offset:Math.random()*10});
 }
 
 const bubbles=[];
-for(let i=0;i<24;i++){
-  const b = new THREE.Mesh(new THREE.SphereGeometry(0.05+Math.random()*0.1,6,6), new THREE.MeshBasicMaterial({color:0x99ddff, transparent:true, opacity:0.35}));
+for(let i=0;i<(LOW_POWER?8:24);i++){
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.05+Math.random()*0.1,LOW_POWER?4:6,LOW_POWER?4:6), new THREE.MeshBasicMaterial({color:0x99ddff, transparent:true, opacity:0.35}));
   b.position.set((Math.random()-0.5)*20, Math.random()*10-6, -Math.random()*40);
   scene.add(b); bubbles.push(b);
 }
@@ -317,7 +451,7 @@ function makeFish(type, cfg){
     color:cfg.color, metalness:cfg.metallic?0.9:0.15, roughness:cfg.metallic?0.25:0.55,
     transparent:!!cfg.glass, opacity:cfg.glass?0.55:1, side:THREE.DoubleSide
   });
-  const geo = new THREE.ExtrudeGeometry(fishProfileShape(), {depth:0.32, bevelEnabled:true, bevelThickness:0.05, bevelSize:0.05, bevelSegments:2, curveSegments:10});
+  const geo = new THREE.ExtrudeGeometry(fishProfileShape(), {depth:0.32, bevelEnabled:!LOW_POWER, bevelThickness:0.05, bevelSize:0.05, bevelSegments:LOW_POWER?1:2, curveSegments:LOW_POWER?4:10});
   geo.center();
   const body = new THREE.Mesh(geo, mat);
   g.add(body);
@@ -356,7 +490,7 @@ function makeFish(type, cfg){
     const glow = new THREE.Mesh(new THREE.TorusGeometry(0.8,0.04,8,16), new THREE.MeshBasicMaterial({color:0xffe98a}));
     glow.rotation.x = Math.PI/2; g.add(glow); g.userData.ring=glow;
   }
-  const hitSphere = new THREE.Mesh(new THREE.SphereGeometry(HITBOX_RADIUS,8,8), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
+  const hitSphere = new THREE.Mesh(new THREE.SphereGeometry(HITBOX_RADIUS,LOW_POWER?5:8,LOW_POWER?5:8), new THREE.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false}));
   g.add(hitSphere);
   g.rotation.y = Math.PI/2;
   g.userData.bobPhase = Math.random()*Math.PI*2;
@@ -398,10 +532,13 @@ function updateExplosions(delta){
   }
 }
 
-// ---------- SINGLE ACTIVE FISH ----------
+// ---------- FISH SPAWNING (one in the hitbox at a time; extra fish approach in the background from level 5+) ----------
 let currentFish = null;
+let bgFish = [];
 let nextSpawnAt = performance.now()+500;
-function spawnNextFish(){
+let nextBgSpawnAt = 0;
+const SWARM_LEVEL = 5; // from this level on, more than one fish can be loose in the scene at once
+function buildSpawnPool(){
   let pool = poolForKills(state.kills);
   const hasRangedWeapon = state.owned.bow || state.owned.ak47 || state.owned.harpoon || state.owned.laserrifle;
   const hasGunWeapon = state.owned.ak47 || state.owned.harpoon || state.owned.laserrifle;
@@ -411,6 +548,10 @@ function spawnNextFish(){
   if(levelForKills(state.kills) >= HARD_LEVEL && hasGunWeapon){
     pool = pool.concat(['bulletproof']);
   }
+  return pool;
+}
+function makeSpawnedFish(){
+  const pool = buildSpawnPool();
   const type = pool[Math.floor(Math.random()*pool.length)];
   const cfg = FISH[type];
   const f = makeFish(type,cfg);
@@ -422,8 +563,21 @@ function spawnNextFish(){
   f.position.copy(sp);
   f.userData.spawnPoint = sp;
   scene.add(f);
+  return f;
+}
+function spawnNextFish(){
+  const f = makeSpawnedFish();
   currentFish = f;
-  document.getElementById('fishAhead').textContent = '🐟 Ahead: ' + cfg.name;
+  document.getElementById('fishAhead').textContent = '🐟 Ahead: ' + f.userData.cfg.name;
+}
+function spawnBgFish(){
+  bgFish.push(makeSpawnedFish());
+}
+function promoteFromBg(){
+  if(!currentFish && bgFish.length){
+    currentFish = bgFish.shift();
+    document.getElementById('fishAhead').textContent = '🐟 Ahead: ' + currentFish.userData.cfg.name;
+  }
 }
 
 // ---------- UI WIRING ----------
@@ -559,7 +713,8 @@ function renderShop(){
     const row=document.createElement('div'); row.className='item';
     const rangeTxt = w.consumable ? 'one-use, 5s fuse' : (w.maxRange ? `range ${w.maxRange}` : 'long range');
     const effTxt = w.consumable ? 'Explosive' : `Eff ${w.eff}`;
-    row.innerHTML = `<div><div class="name">${w.name}</div><div class="meta">${effTxt} — ${w.price} coins${w.gun?' (+bullets)':''} — ${rangeTxt}</div></div>`;
+    const ammoNote = w.gun ? ` (comes with 10 ${w.ammoLabel||'ammo'})` : '';
+    row.innerHTML = `<div><div class="name">${w.name}</div><div class="meta">${effTxt} — ${w.price} coins${ammoNote} — ${rangeTxt}</div></div>`;
     const btn=document.createElement('button'); btn.className='buy';
     if(w.consumable){
       btn.textContent = `Buy (+1)`;
@@ -568,6 +723,7 @@ function renderShop(){
         if(state.coins>=w.price){
           state.coins-=w.price; state.owned[k]=true; state.bombs=(state.bombs||0)+1;
           if(!state.current || !state.owned[state.current]) state.current=k;
+          sfx.buy();
           showToast(`Bought a bomb!`); updateHUD(); renderShop(); updateHandIcon(); saveProgress();
         }
       };
@@ -577,19 +733,35 @@ function renderShop(){
       btn.onclick=()=>{
         if(state.coins>=w.price && !owned){
           state.coins-=w.price; state.owned[k]=true; state.current=k;
-          showToast(`Bought ${w.name}!`); updateHUD(); renderShop(); updateHandIcon(); saveProgress();
+          if(w.gun){ state.ammo += 10; }
+          sfx.buy();
+          showToast(`Bought ${w.name}!` + (w.gun? ` +10 ${w.ammoLabel||'ammo'}`:''));
+          updateHUD(); renderShop(); updateHandIcon(); saveProgress();
         }
       };
     }
     row.appendChild(btn); shopList.appendChild(row);
   });
 }
-document.getElementById('shopBtn').onclick=()=>{renderShop(); shopEl.classList.remove('hidden');};
-document.getElementById('closeShop').onclick=()=>shopEl.classList.add('hidden');
+document.getElementById('shopBtn').onclick=()=>{
+  if(state.started && state.alive) state.paused=true;
+  renderShop(); shopEl.classList.remove('hidden');
+};
+document.getElementById('closeShop').onclick=()=>{
+  shopEl.classList.add('hidden');
+  if(state.started && state.alive) state.paused=false;
+};
 document.getElementById('buyAmmo').onclick=()=>{
-  if(state.coins>=5){state.coins-=5; state.ammo+=10; showToast('Bought 10 bullets!'); updateHUD(); renderShop(); saveProgress();}
+  if(state.coins>=5){state.coins-=5; state.ammo+=10; sfx.buy(); showToast('Bought 10 ammo!'); updateHUD(); renderShop(); saveProgress();}
 };
 document.getElementById('restartBtn').onclick=()=>restart();
+
+const lowPowerToggle = document.getElementById('lowPowerToggle');
+lowPowerToggle.checked = LOW_POWER;
+lowPowerToggle.onchange = ()=>{
+  try{ localStorage.setItem(LOW_POWER_KEY, lowPowerToggle.checked ? '1' : '0'); }catch(e){}
+  location.reload();
+};
 
 const savedProgress = loadProgress();
 if(savedProgress){
@@ -608,6 +780,7 @@ document.getElementById('continueBtn').onclick=()=>{
   startScreen.classList.add('hidden');
   state.started=true;
   nextSpawnAt = performance.now()+500;
+  startAmbience();
   updateHUD(); updateHandIcon();
 };
 document.getElementById('startBtn').onclick=()=>{
@@ -616,18 +789,32 @@ document.getElementById('startBtn').onclick=()=>{
   startScreen.classList.add('hidden');
   state.started=true;
   nextSpawnAt = performance.now()+500;
+  startAmbience();
   updateHUD(); updateHandIcon();
 };
-document.getElementById('startCreditsBtn').onclick=()=>{renderCredits(); creditsEl.classList.remove('hidden');};
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.textContent = audioMuted ? '🔇' : '🔊';
+muteBtn.onclick = ()=>{
+  setMuted(!audioMuted);
+  muteBtn.textContent = audioMuted ? '🔇' : '🔊';
+};
+document.getElementById('startCreditsBtn').onclick=()=>{
+  if(state.started) state.paused=true;
+  renderCredits(); creditsEl.classList.remove('hidden');
+};
 document.getElementById('closeCredits').onclick=()=>creditsEl.classList.add('hidden');
 
 document.getElementById('pauseBtn').onclick=()=>{
   if(!state.started || !state.alive) return;
+  sfx.pause();
   state.paused = !state.paused;
   pauseOverlay.classList.toggle('hidden', !state.paused);
 };
-document.getElementById('resumeBtn').onclick=()=>{ state.paused=false; pauseOverlay.classList.add('hidden'); };
-document.getElementById('pauseCreditsBtn').onclick=()=>{renderCredits(); creditsEl.classList.remove('hidden');};
+document.getElementById('resumeBtn').onclick=()=>{ sfx.pause(); state.paused=false; pauseOverlay.classList.add('hidden'); };
+document.getElementById('pauseCreditsBtn').onclick=()=>{
+  state.paused=true;
+  renderCredits(); creditsEl.classList.remove('hidden');
+};
 document.getElementById('pauseRestartBtn').onclick=()=>{ pauseOverlay.classList.add('hidden'); restart(); };
 addEventListener('keydown', e=>{
   if(e.key==='Escape' && state.started && state.alive){
@@ -653,6 +840,7 @@ function updateHUD(){
 // ---------- ATTACK ----------
 const raycaster = new THREE.Raycaster();
 function triggerHandSwing(){
+  sfx.attack();
   const el = document.getElementById('handIcon');
   el.classList.remove('swing'); void el.offsetWidth; el.classList.add('swing');
 }
@@ -673,6 +861,7 @@ function placeBomb(){
   updateHUD(); saveProgress();
   setTimeout(()=>{
     scene.remove(bombMesh);
+    sfx.explosion();
     spawnExplosion(bombMesh.position.clone(), 0xffaa00, true);
     if(currentFish && currentFish.position.distanceTo(bombMesh.position) < 6){
       currentFish.userData.hp -= 1000;
@@ -711,6 +900,7 @@ function attack(ndcX, ndcY){
       if(!w.gun){
         showToast('🛡️ Bulletproof! Only guns work on this one.');
       } else {
+        sfx.hit();
         currentFish.userData.bulletHitsLeft--;
         if(currentFish.userData.bulletHitsLeft<=0){
           killFish(currentFish);
@@ -729,6 +919,7 @@ function attack(ndcX, ndcY){
     if(currentFish.userData.hp<=0){
       killFish(currentFish);
     } else {
+      sfx.hit();
       // vicious, but flinches back a little from a hit before closing in again
       const pushDir = currentFish.position.clone().sub(camera.position).normalize();
       currentFish.position.addScaledVector(pushDir, 5.5);
@@ -759,10 +950,12 @@ if(window.PointerEvent){
 }
 
 function killFish(f){
+  sfx.kill();
   spawnExplosion(f.position.clone(), f.userData.cfg.color, f.userData.cfg.nuke);
   scene.remove(f);
   if(currentFish===f) currentFish=null;
   state.coins += (f.userData.cfg.coinValue || 1); state.kills++;
+  sfx.coin();
   const w = WEAPONS[state.current];
   if(w && w.healOnKill){
     state.hp = Math.min(100, state.hp + w.healOnKill);
@@ -770,6 +963,7 @@ function killFish(f){
   }
   nextSpawnAt = performance.now() + 500/levelSpeedMult(state.kills);
   document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
+  promoteFromBg();
   updateHUD();
   saveProgress();
 }
@@ -795,16 +989,22 @@ function restart(){
   state = {hp:100,coins:0,kills:0,owned:{fist:true},current:'fist',ammo:0,bombs:0,poisonUntil:0,stunUntil:0,alive:true,lastAttack:0,started:true,paused:false};
   updateHandIcon();
   if(currentFish){ scene.remove(currentFish); currentFish=null; }
+  bgFish.forEach(f=>scene.remove(f)); bgFish=[];
   nextSpawnAt = performance.now()+500;
+  nextBgSpawnAt = performance.now()+2000;
   goEl.classList.add('hidden');
   document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
   updateHUD();
 }
 
 // ---------- LOOP ----------
-let lastPoisonTick=0, lastRegenTick=0, lastTime=performance.now();
+let lastPoisonTick=0, lastRegenTick=0, lastTime=performance.now(), lastFrameAt=0;
+const LOW_POWER_FRAME_MS = 1000/20; // cap at ~20fps in low power mode
 function loop(){
   requestAnimationFrame(loop);
+  const nowRaw = performance.now();
+  if(LOW_POWER && nowRaw - lastFrameAt < LOW_POWER_FRAME_MS) return;
+  lastFrameAt = nowRaw;
   const now = performance.now();
   const delta = Math.min((now-lastTime)/1000, 0.1); lastTime=now;
 
@@ -823,11 +1023,13 @@ function loop(){
         if(distNow <= SPEED_ZONE_RADIUS){
           if(!f.userData.fuseStart) f.userData.fuseStart = now;
           if(now - f.userData.fuseStart >= 1000){
+            sfx.explosion();
             spawnExplosion(f.position.clone(), 0xff5a2a, true);
             damagePlayer(25,false);
             showToast('💥 Nuke fish exploded!');
             scene.remove(f); currentFish=null; nextSpawnAt = now+600;
             document.getElementById('fishAhead').textContent = '🔭 Scanning the reef...';
+            promoteFromBg();
             exploded = true;
           }
         } else {
@@ -842,6 +1044,7 @@ function loop(){
         f.position.y += Math.sin(now*0.006)*0.01;
         f.lookAt(camera.position);
         if(now - f.userData.lastBite >= 1300){
+          sfx.bite();
           damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
           if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung again!'); }
           else showToast('🩸 It won\'t let go!');
@@ -874,6 +1077,7 @@ function loop(){
           }
         }
         if(f.position.distanceTo(camera.position) <= CONTACT_OFFSET+0.8){
+          sfx.bite();
           damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
           if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung! You are stunned!'); }
           else showToast('🩸 The fish bit you!');
@@ -882,6 +1086,32 @@ function loop(){
         }
       }
     }
+    const curLevel = levelForKills(state.kills);
+    if(curLevel >= SWARM_LEVEL){
+      if(bgFish.length < 2 && now >= nextBgSpawnAt){
+        spawnBgFish();
+        nextBgSpawnAt = now + 1800 + Math.random()*1800;
+      }
+    }
+    const softLimit = SPEED_ZONE_RADIUS + 6;
+    bgFish.forEach(f=>{
+      const cfg = f.userData.cfg;
+      if(f.userData.ring) f.userData.ring.rotation.z += delta*4;
+      if(cfg.nuke && f.userData.glowMat){
+        f.userData.glowMat.emissiveIntensity = 0.4 + 0.5*Math.abs(Math.sin(now*0.012));
+      }
+      const dist = f.position.distanceTo(camera.position);
+      if(dist > softLimit){
+        const effSpeed = cfg.speed * levelSpeedMult(state.kills) * (dist > SPEED_ZONE_RADIUS ? 3 : 0.6);
+        const flatTarget = new THREE.Vector3(camera.position.x, f.position.y, camera.position.z);
+        const dir = flatTarget.clone().sub(f.position).normalize();
+        f.position.addScaledVector(dir, effSpeed*delta);
+      }
+      const bobMult = levelBobMult(state.kills);
+      f.position.y = f.userData.spawnPoint.y + Math.sin(now*0.004*bobMult + f.userData.bobPhase)*1.3*bobMult;
+      f.lookAt(camera.position);
+    });
+
     if(now < state.poisonUntil && now - lastPoisonTick > 1000){
       lastPoisonTick = now; damagePlayer(2,false);
     }
