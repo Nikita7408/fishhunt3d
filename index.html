@@ -20,6 +20,20 @@
   #hearts{display:flex;gap:2px;}
   #hearts svg{image-rendering:pixelated;display:block;}
   #pauseBtn,#muteBtn{pointer-events:auto;cursor:pointer;background:#2a5a6e;color:var(--txt);font-weight:700;border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;}
+  #tankBtn{pointer-events:auto;cursor:pointer;font-weight:700;border:none;border-radius:8px;padding:6px 12px;font-size:13px;text-decoration:none;display:inline-block;}
+  .donate-btn{pointer-events:auto;cursor:pointer;font-weight:800;border:none;border-radius:10px;padding:12px 18px;font-size:17px;text-decoration:none;display:inline-block;background:#ff4d6d;color:#fff;box-shadow:0 2px 6px #0006;}
+  #donateBtn.donate-btn{padding:10px 16px;font-size:15px;}
+  #tankBtn{background:#2fbf71;color:#06270f;}
+  .lookBtn{background:#2a5a6eaa;color:#fff;border:1px solid var(--accent);border-radius:6px;font-size:16px;cursor:pointer;pointer-events:auto;}
+  #tankCockpit{position:fixed;inset:0;z-index:4;pointer-events:none;display:none;}
+  #tankCockpit.active{display:block;}
+  #tankCockpit::before{content:"";position:absolute;inset:0;background:
+      radial-gradient(ellipse 60% 55% at 50% 48%, transparent 60%, #1a1a1acc 88%, #0a0a0af2 100%);}
+  .tank-bolt{position:absolute;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #8a8a8a, #2a2a2a 70%);box-shadow:0 1px 2px #000a;}
+  #tankCrosshair{position:absolute;top:50%;left:50%;width:26px;height:26px;margin:-13px;border:2px solid #ffffffaa;border-radius:2px;}
+  #tankCrosshair::before,#tankCrosshair::after{content:"";position:absolute;background:#ffffffaa;}
+  #tankCrosshair::before{left:50%;top:-8px;width:2px;height:8px;margin-left:-1px;}
+  #tankCrosshair::after{left:50%;bottom:-8px;width:2px;height:8px;margin-left:-1px;}
   #left{display:flex;flex-direction:column;gap:4px;}
   #right{display:flex;flex-direction:column;gap:4px;align-items:flex-end;pointer-events:none;}
   #shopBtn{pointer-events:auto;}
@@ -71,6 +85,33 @@
 <div id="crosshair"></div>
 <div id="fishAhead">🔭 Scanning the reef...</div>
 <div id="handIcon">👊</div>
+<div id="tankLookControls" class="hidden" style="position:fixed;bottom:calc(140px + env(safe-area-inset-bottom,0px));left:14px;display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);gap:4px;z-index:6;">
+  <div></div><button class="lookBtn" data-dx="0" data-dy="-1">▲</button><div></div>
+  <button class="lookBtn" data-dx="-1" data-dy="0">◀</button><div></div><button class="lookBtn" data-dx="1" data-dy="0">▶</button>
+  <div></div><button class="lookBtn" data-dx="0" data-dy="1">▼</button><div></div>
+</div>
+<div id="tankDriveControls" class="hidden" style="position:fixed;bottom:calc(140px + env(safe-area-inset-bottom,0px));right:14px;display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);gap:4px;z-index:6;">
+  <div></div><button class="lookBtn driveBtn" data-dir="forward">▲</button><div></div>
+  <button class="lookBtn driveBtn" data-dir="left">◀</button><div></div><button class="lookBtn driveBtn" data-dir="right">▶</button>
+  <div></div><button class="lookBtn driveBtn" data-dir="back">▼</button><div></div>
+</div>
+<button id="tankExplodeBtn" class="hidden" style="position:fixed;bottom:calc(140px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:6;background:#ff4b4b;color:#fff;border:none;border-radius:50%;width:64px;height:64px;font-size:22px;font-weight:800;pointer-events:auto;">💥</button>
+<div id="tankCockpit">
+  <div class="tank-bolt" style="top:10px;left:10px;"></div>
+  <div class="tank-bolt" style="top:10px;right:10px;"></div>
+  <div class="tank-bolt" style="bottom:10px;left:10px;"></div>
+  <div class="tank-bolt" style="bottom:10px;right:10px;"></div>
+  <div id="tankCrosshair"></div>
+</div>
+<button id="tankExitBtn" class="hidden" style="position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;z-index:6;background:#ff4d6d;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;pointer-events:auto;">🚪 Exit Tank</button>
+<div id="mcPortalOverlay" class="modal hidden">
+  <div class="card" style="text-align:center;">
+    <h2>🌀 You found a rare portal!</h2>
+    <p>It leads somewhere else entirely — a real, official Minecraft world.</p>
+    <button class="closeBtn" id="mcEnterBtn" style="background:#2fbf71;color:#06270f;">Enter Minecraft Classic (opens in a new tab)</button>
+    <button class="closeBtn" id="mcLeaveBtn">← Never mind, back to the sea</button>
+  </div>
+</div>
 
 <div id="hud">
   <div id="left">
@@ -81,6 +122,7 @@
   <div id="right">
     <div class="pill">🪙 <b id="coins">0</b></div>
     <div class="pill">🐟 Kills: <b id="kills">0</b></div>
+    <a id="donateBtn" class="donate-btn" href="https://donate.stripe.com/bJe5kw2j05zq2UUcu1bV603" target="_blank" rel="noopener noreferrer">💖 Donate</a>
     <button id="shopBtn">🛒 SHOP</button>
     <button id="pauseBtn">⏸ PAUSE</button>
     <button id="muteBtn">🔊</button>
@@ -97,6 +139,16 @@
       <div><div class="name">Ammo (shared: bow, AK47, harpoon, laser rifle)</div><div class="meta">+10 ammo — 5 coins</div></div>
       <button class="buy" id="buyAmmo">Buy</button>
     </div>
+    <div class="item" style="flex-direction:column;align-items:stretch;gap:6px;border-top:2px solid var(--accent);margin-top:6px;padding-top:10px;">
+      <div><div class="name">🚗 Tank Upgrade — $0.50</div><div class="meta">Drive anywhere, smash through rocks, totally safe from fish. One-time real-money purchase.</div></div>
+      <a id="tankStripeLink" class="buy" style="text-align:center;text-decoration:none;display:block;" target="_blank" rel="noopener noreferrer">Buy via Stripe</a>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="tankCodeInput" placeholder="Enter code from checkout" maxlength="10" style="flex:1;min-width:0;padding:8px;border-radius:6px;border:1px solid var(--accent);background:#0004;color:var(--txt);">
+        <button class="buy" id="unlockTankBtn" style="background:#ffd23f;color:#3a2e00;flex-shrink:0;">Unlock</button>
+      </div>
+      <button class="buy hidden" id="enterTankFromShopBtn" style="background:#2fbf71;color:#06270f;">🚗 Enter Tank (one-time use)</button>
+    </div>
+    <a class="donate-btn" href="https://donate.stripe.com/bJe5kw2j05zq2UUcu1bV603" target="_blank" rel="noopener noreferrer" style="display:block;box-sizing:border-box;text-align:center;margin-top:10px;">💖 Donate</a>
     <button class="closeBtn" id="closeShop">Close</button>
   </div>
 </div>
@@ -114,6 +166,7 @@
     <h2>⏸ Paused</h2>
     <button class="closeBtn" id="resumeBtn">Resume</button>
     <button class="closeBtn" id="pauseCreditsBtn" style="background:#9b5de5;color:#fff;">Credits</button>
+    <a class="closeBtn donate-btn" href="https://donate.stripe.com/bJe5kw2j05zq2UUcu1bV603" target="_blank" rel="noopener noreferrer" style="display:block;box-sizing:border-box;text-align:center;">💖 Donate</a>
     <button class="closeBtn" id="pauseRestartBtn" style="background:var(--bad);color:#fff;">Restart</button>
   </div>
 </div>
@@ -135,6 +188,7 @@
     <button class="mc-btn hidden" id="continueBtn">Continue</button>
     <button class="mc-btn" id="startBtn">Start Game</button>
     <button class="mc-btn" id="startCreditsBtn">Credits</button>
+    <a class="mc-btn" id="startDonateBtn" href="https://donate.stripe.com/bJe5kw2j05zq2UUcu1bV603" target="_blank" rel="noopener noreferrer" style="background:#ff4d6d;box-sizing:border-box;text-decoration:none;">💖 Donate</a>
     <label class="mc-sub" style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">
       <input type="checkbox" id="lowPowerToggle"> Low Power Mode (older/slower devices)
     </label>
@@ -340,8 +394,12 @@ let state = {
   hp:100, coins:0, kills:0,
   owned:{fist:true}, current:'fist', ammo:0,
   poisonUntil:0, stunUntil:0, alive:true, lastAttack:0,
-  started:false, paused:false
+  started:false, paused:false, inTank:false
 };
+
+// ✓ Tank Stripe Payment Link (one-time $0.50 purchase)
+const TANK_STRIPE_LINK = 'https://buy.stripe.com/fZu9AM0aS4vmfHG0LjbV604';
+const TANK_UNLOCK_CODE = '1345';
 
 const SPLASH_TEXTS = ["now with sharks!","watch out for pufferfish!","bring bullets!","it bites back!","coral reef approved!","don't get stung!","100% nuke-powered!","hearts regenerate!"];
 document.getElementById('splashText').textContent = SPLASH_TEXTS[Math.floor(Math.random()*SPLASH_TEXTS.length)];
@@ -349,7 +407,7 @@ document.getElementById('splashText').textContent = SPLASH_TEXTS[Math.floor(Math
 // ✏️ EDIT YOUR CREDITS HERE — add/remove/change entries freely
 const CREDITS = [
   {role:"Developed by", name:"Nikita Levchenko"},
-  {role:"Original Idea by", name:"ChezGuy"}
+  {role:"Original Idea by", name:"RoboNoboJeff"}
 ];
 
 // ---------- WEBGL CHECK & LOW POWER MODE ----------
@@ -373,8 +431,8 @@ function detectLowPowerDefault(){
 let LOW_POWER = false;
 try{
   const stored = localStorage.getItem(LOW_POWER_KEY);
-  LOW_POWER = stored!==null ? stored==='1' : detectLowPowerDefault();
-}catch(e){ LOW_POWER = detectLowPowerDefault(); }
+  LOW_POWER = stored === '1'; // always starts unchecked unless the player has explicitly turned it on before
+}catch(e){ LOW_POWER = false; }
 
 // ---------- THREE SETUP ----------
 const canvas = document.getElementById('c');
@@ -389,6 +447,7 @@ scene.background = new THREE.Color(0x075269);
 scene.fog = new THREE.FogExp2(0x053a4d, 0.014);
 const camera = new THREE.PerspectiveCamera(100, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(0,1,8);
+camera.rotation.order = 'YXZ';
 addEventListener('resize', resize); resize();
 
 scene.add(new THREE.AmbientLight(0x6fb8cc, 0.55));
@@ -694,7 +753,7 @@ function updateHandIcon(){
 function renderWeaponBar(){
   weaponbar.innerHTML='';
   Object.keys(WEAPONS).forEach(k=>{
-    if(!state.owned[k]) return;
+    if(!state.inTank && !state.owned[k]) return;
     const w=WEAPONS[k];
     const btn=document.createElement('button');
     btn.className='wbtn'+(state.current===k?' active':'');
@@ -775,7 +834,7 @@ document.getElementById('continueBtn').onclick=()=>{
     coins: savedProgress.coins||0, owned: savedProgress.owned||{fist:true},
     current: savedProgress.current||'fist', ammo: savedProgress.ammo||0,
     kills: savedProgress.kills||0, hp: (typeof savedProgress.hp==='number'? savedProgress.hp:100),
-    bombs: savedProgress.bombs||0, poisonUntil:0, stunUntil:0
+    bombs: savedProgress.bombs||0, inTank:false, poisonUntil:0, stunUntil:0
   });
   startScreen.classList.add('hidden');
   state.started=true;
@@ -785,7 +844,7 @@ document.getElementById('continueBtn').onclick=()=>{
 };
 document.getElementById('startBtn').onclick=()=>{
   clearProgress();
-  Object.assign(state, {coins:0, owned:{fist:true}, current:'fist', ammo:0, kills:0, hp:100, bombs:0, poisonUntil:0, stunUntil:0});
+  Object.assign(state, {coins:0, owned:{fist:true}, current:'fist', ammo:0, kills:0, hp:100, bombs:0, inTank:false, poisonUntil:0, stunUntil:0});
   startScreen.classList.add('hidden');
   state.started=true;
   nextSpawnAt = performance.now()+500;
@@ -798,6 +857,212 @@ muteBtn.onclick = ()=>{
   setMuted(!audioMuted);
   muteBtn.textContent = audioMuted ? '🔇' : '🔊';
 };
+const tankStripeLinkEl = document.getElementById('tankStripeLink');
+tankStripeLinkEl.href = TANK_STRIPE_LINK;
+tankStripeLinkEl.addEventListener('click', (e)=>{
+  e.preventDefault();
+  alert('After you pay, Stripe will show you a confirmation code (it will say "1345"). Write it down! Come back to this Shop and enter it in the "Unlock" box to claim your tank.');
+  window.open(TANK_STRIPE_LINK, '_blank', 'noopener,noreferrer');
+});
+document.getElementById('unlockTankBtn').onclick=()=>{
+  const codeInput = document.getElementById('tankCodeInput');
+  const entered = codeInput.value.trim();
+  if(entered === TANK_UNLOCK_CODE){
+    sfx.buy();
+    showToast('🔓 Code accepted! Use the one-time Enter Tank button below.');
+    document.getElementById('enterTankFromShopBtn').classList.remove('hidden');
+    codeInput.value='';
+  } else {
+    showToast('❌ Incorrect code — check your Stripe receipt.');
+  }
+};
+document.getElementById('enterTankFromShopBtn').onclick=()=>{
+  const btn = document.getElementById('enterTankFromShopBtn');
+  btn.classList.add('hidden'); // single-use: must enter the code again next time
+  shopEl.classList.add('hidden');
+  if(state.started && state.alive) state.paused=false;
+  startTankSession();
+};
+const tankLookControls = document.getElementById('tankLookControls');
+const tankDriveControls = document.getElementById('tankDriveControls');
+let tankYaw=0, tankPitch=0;
+const driveState = {forward:false, back:false, left:false, right:false};
+const HOME_POSITION = new THREE.Vector3(0,1,8);
+let rocks = [];
+function spawnRocks(){
+  for(let i=0;i<22;i++){
+    const r = 1 + Math.random()*2;
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r,0), new THREE.MeshStandardMaterial({color:0x6b5d4f, roughness:0.95, flatShading:true}));
+    rock.position.set((Math.random()-0.5)*160, -4.5+Math.random()*0.5, -10-Math.random()*130);
+    rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    rock.userData.radius = r;
+    scene.add(rock); rocks.push(rock);
+  }
+}
+function clearRocks(){ rocks.forEach(r=>scene.remove(r)); rocks=[]; }
+let lastTankExplodeAt = 0;
+function tankExplode(){
+  if(!state.inTank) return;
+  const now = performance.now();
+  if(now - lastTankExplodeAt < 600) return;
+  lastTankExplodeAt = now;
+  sfx.explosion();
+  raycaster.setFromCamera({x:0,y:0}, camera); // straight down the crosshair, wherever you're actually looking
+  const hits = raycaster.intersectObjects(rocks);
+  if(hits.length){
+    const rock = hits[0].object;
+    spawnExplosion(rock.position.clone(), 0xffaa33, true);
+    scene.remove(rock);
+    const idx = rocks.indexOf(rock);
+    if(idx>-1) rocks.splice(idx,1);
+  } else {
+    const forward = new THREE.Vector3(-Math.sin(tankYaw), 0, -Math.cos(tankYaw));
+    const blastPos = camera.position.clone().addScaledVector(forward, 10);
+    spawnExplosion(blastPos, 0xffaa33, false);
+  }
+}
+addEventListener('keydown', e=>{
+  if((e.key==='e'||e.key==='E') && state.inTank) tankExplode();
+});
+document.getElementById('tankExplodeBtn').addEventListener('touchstart', e=>{ e.preventDefault(); tankExplode(); }, {passive:false});
+document.getElementById('tankExplodeBtn').addEventListener('mousedown', ()=> tankExplode());
+
+// ---- Tank-only scenery: trenches, shipwrecks, mermaids, and a rare portal ----
+let tankScenery = [];
+let portalMesh = null;
+function spawnTankScenery(){
+  // trenches: rare deep dark crevices (~20% chance per tank session)
+  if(Math.random() < 0.2){
+    const count = 2 + Math.floor(Math.random()*4);
+    for(let i=0;i<count;i++){
+      const trench = new THREE.Mesh(new THREE.BoxGeometry(14+Math.random()*20, 2.5, 3.6), new THREE.MeshStandardMaterial({color:0x020a12, roughness:1}));
+      trench.position.set((Math.random()-0.5)*160, -5.3, -10-Math.random()*130);
+      trench.rotation.y = Math.random()*Math.PI;
+      scene.add(trench); tankScenery.push(trench);
+    }
+  }
+  // shipwrecks (much bigger) + mermaids that swim and can follow you
+  for(let i=0;i<3;i++){
+    const wreckX=(Math.random()-0.5)*150, wreckZ=-20-Math.random()*110;
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(8,12,42,8), new THREE.MeshStandardMaterial({color:0x4a3524, roughness:0.9, flatShading:true}));
+    hull.rotation.z = Math.PI/2.3; hull.rotation.y = Math.random()*Math.PI;
+    hull.position.set(wreckX, -4.6, wreckZ);
+    scene.add(hull); tankScenery.push(hull);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.7,1,28,8), new THREE.MeshStandardMaterial({color:0x33231a}));
+    mast.position.set(wreckX+5, 5, wreckZ);
+    mast.rotation.z = 0.3;
+    scene.add(mast); tankScenery.push(mast);
+    // mermaid: sphere head + cone tail
+    const mermaid = new THREE.Group();
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10), new THREE.MeshStandardMaterial({color:0xffd8b0}));
+    head.position.y=1.1; mermaid.add(head);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.35,1.2,8), new THREE.MeshStandardMaterial({color:0xffd8b0}));
+    torso.position.y=0.3; mermaid.add(torso);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.5,2,8), new THREE.MeshStandardMaterial({color:0x2fbf9e, metalness:0.3, roughness:0.4}));
+    tail.position.y=-1.1; mermaid.add(tail);
+    const hair = new THREE.Mesh(new THREE.ConeGeometry(0.4,0.8,8), new THREE.MeshStandardMaterial({color:0xcf8f3a}));
+    hair.position.y=1.4; hair.rotation.x=Math.PI; mermaid.add(hair);
+    const baseX = wreckX+Math.random()*4-2, baseZ = wreckZ+Math.random()*4-2;
+    mermaid.position.set(baseX, -3.2, baseZ);
+    mermaid.userData.bob = Math.random()*Math.PI*2;
+    mermaid.userData.baseX = baseX;
+    mermaid.userData.baseZ = baseZ;
+    mermaid.userData.swimPhase = Math.random()*Math.PI*2;
+    scene.add(mermaid); tankScenery.push(mermaid);
+  }
+  // rare portal (~5% chance per tank session)
+  if(Math.random() < 0.05){
+    const portal = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3,0.5,12,24), new THREE.MeshStandardMaterial({color:0x7a2fbf, emissive:0x7a2fbf, emissiveIntensity:0.6}));
+    portal.add(ring);
+    const sheen = new THREE.Mesh(new THREE.CircleGeometry(2.6,24), new THREE.MeshBasicMaterial({color:0x33ffcc, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+    portal.add(sheen);
+    portal.position.set((Math.random()-0.5)*140, -1, -20-Math.random()*90);
+    portal.userData.radius = 3.5;
+    scene.add(portal); tankScenery.push(portal); portalMesh = portal;
+  }
+}
+function clearTankScenery(){ tankScenery.forEach(m=>scene.remove(m)); tankScenery=[]; portalMesh=null; }
+
+// ---- Portal destination: the real Minecraft Classic, opened in a new tab ----
+const MINECRAFT_CLASSIC_URL = 'https://classic.minecraft.net/';
+let inVoxelWorld = false; // true while the portal prompt is open
+function enterMinecraftPortal(){
+  if(inVoxelWorld) return;
+  inVoxelWorld = true;
+  exitTankSession(); // entering the portal exits the tank
+  document.getElementById('mcPortalOverlay').classList.remove('hidden');
+}
+function exitMinecraftPortal(){
+  inVoxelWorld = false;
+  document.getElementById('mcPortalOverlay').classList.add('hidden');
+}
+document.getElementById('mcLeaveBtn').onclick = exitMinecraftPortal;
+document.getElementById('mcEnterBtn').onclick = ()=>{
+  window.open(MINECRAFT_CLASSIC_URL, '_blank', 'noopener,noreferrer');
+  exitMinecraftPortal();
+};
+
+function startTankSession(){
+  state.inTank = true;
+  document.getElementById('tankExitBtn').classList.remove('hidden');
+  tankDriveControls.classList.remove('hidden');
+  document.getElementById('tankExplodeBtn').classList.remove('hidden');
+  document.getElementById('tankCockpit').classList.add('active');
+  driveState.forward=driveState.back=driveState.left=driveState.right=false;
+  spawnRocks();
+  spawnTankScenery();
+  requestTankMouseLook();
+}
+function exitTankSession(){
+  if(!state.inTank) return;
+  state.inTank = false;
+  document.getElementById('tankExitBtn').classList.add('hidden');
+  tankDriveControls.classList.add('hidden');
+  document.getElementById('tankExplodeBtn').classList.add('hidden');
+  document.getElementById('tankCockpit').classList.remove('active');
+  clearRocks();
+  clearTankScenery();
+  camera.position.copy(HOME_POSITION);
+  camera.rotation.set(0,0,0); tankYaw=0; tankPitch=0;
+  if(document.pointerLockElement===canvas) document.exitPointerLock();
+  renderWeaponBar();
+  saveProgress();
+}
+document.getElementById('tankExitBtn').onclick = exitTankSession;
+document.querySelectorAll('.lookBtn:not(.driveBtn)').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(!state.inTank) return;
+    const dx = parseFloat(btn.dataset.dx), dy = parseFloat(btn.dataset.dy);
+    tankYaw = Math.max(-0.6, Math.min(0.6, tankYaw + dx*0.15));
+    tankPitch = Math.max(-0.35, Math.min(0.35, tankPitch + dy*0.15));
+    camera.rotation.y = tankYaw; camera.rotation.x = tankPitch;
+  });
+});
+document.querySelectorAll('.driveBtn').forEach(btn=>{
+  const dir = btn.dataset.dir;
+  const on = (e)=>{ if(e&&e.cancelable) e.preventDefault(); driveState[dir]=true; };
+  const off = ()=>{ driveState[dir]=false; };
+  btn.addEventListener('touchstart', on, {passive:false});
+  btn.addEventListener('touchend', off, {passive:false});
+  btn.addEventListener('mousedown', on);
+  btn.addEventListener('mouseup', off);
+  btn.addEventListener('mouseleave', off);
+});
+addEventListener('keydown', e=>{
+  if(!state.inTank) return;
+  if(e.key==='w'||e.key==='ArrowUp') driveState.forward=true;
+  if(e.key==='s'||e.key==='ArrowDown') driveState.back=true;
+  if(e.key==='a'||e.key==='ArrowLeft') driveState.left=true;
+  if(e.key==='d'||e.key==='ArrowRight') driveState.right=true;
+});
+addEventListener('keyup', e=>{
+  if(e.key==='w'||e.key==='ArrowUp') driveState.forward=false;
+  if(e.key==='s'||e.key==='ArrowDown') driveState.back=false;
+  if(e.key==='a'||e.key==='ArrowLeft') driveState.left=false;
+  if(e.key==='d'||e.key==='ArrowRight') driveState.right=false;
+});
+
 document.getElementById('startCreditsBtn').onclick=()=>{
   if(state.started) state.paused=true;
   renderCredits(); creditsEl.classList.remove('hidden');
@@ -929,25 +1194,62 @@ function attack(ndcX, ndcY){
   updateHUD();
 }
 let lastTouchAt = 0;
+let dragActive = false, dragLastX=0, dragLastY=0, dragMoved=false;
 function handleTapInput(clientX, clientY){
   const x=(clientX/innerWidth)*2-1, y=-(clientY/innerHeight)*2+1;
   attack(x,y);
 }
+// Touch look: drag-based (deltas), since touch has no persistent cursor position
+function dragStart(x,y){ dragActive=true; dragMoved=false; dragLastX=x; dragLastY=y; }
+function dragMove(x,y){
+  if(!dragActive || !state.inTank) return;
+  const dx=x-dragLastX, dy=y-dragLastY;
+  if(Math.abs(dx)>3||Math.abs(dy)>3) dragMoved=true;
+  dragLastX=x; dragLastY=y;
+  tankYaw = Math.max(-1.3, Math.min(1.3, tankYaw - dx*0.003));
+  tankPitch = Math.max(-0.5, Math.min(0.5, tankPitch - dy*0.003));
+  camera.rotation.y = tankYaw; camera.rotation.x = tankPitch;
+}
+function dragEnd(x,y){ dragActive=false; }
 canvas.addEventListener('touchstart', e=>{
   lastTouchAt = performance.now();
-  if(e.touches && e.touches.length){ e.preventDefault(); handleTapInput(e.touches[0].clientX, e.touches[0].clientY); }
+  if(e.touches && e.touches.length){
+    e.preventDefault();
+    const t=e.touches[0];
+    if(state.inTank) dragStart(t.clientX, t.clientY);
+    else handleTapInput(t.clientX, t.clientY);
+  }
 }, {passive:false});
+canvas.addEventListener('touchmove', e=>{
+  if(state.inTank && e.touches && e.touches.length){ e.preventDefault(); dragMove(e.touches[0].clientX, e.touches[0].clientY); }
+}, {passive:false});
+canvas.addEventListener('touchend', e=>{
+  const ct = e.changedTouches && e.changedTouches[0];
+  dragEnd(ct?ct.clientX:null, ct?ct.clientY:null);
+});
+// Mouse: no click needed to explode (that's E / the explode button), so mousedown only matters outside the tank
 canvas.addEventListener('mousedown', e=>{
   if(performance.now() - lastTouchAt < 800) return; // avoid double-firing from synthetic mouse events after touch
-  handleTapInput(e.clientX, e.clientY);
+  if(!state.inTank) handleTapInput(e.clientX, e.clientY);
 });
 if(window.PointerEvent){
   canvas.addEventListener('pointerdown', e=>{
     if(e.pointerType==='touch') return; // already handled by touchstart above
     if(performance.now() - lastTouchAt < 800) return;
-    handleTapInput(e.clientX, e.clientY);
+    if(!state.inTank) handleTapInput(e.clientX, e.clientY);
   });
 }
+// Continuous mouselook while in the tank: your view follows where your cursor sits on screen
+// relative to its center, at all times, with no click or pointer-lock required (reliable everywhere).
+window.addEventListener('mousemove', e=>{
+  if(!state.inTank) return;
+  const nx = (e.clientX/innerWidth)*2 - 1;   // -1 (left edge) .. 1 (right edge)
+  const ny = (e.clientY/innerHeight)*2 - 1;  // -1 (top edge) .. 1 (bottom edge)
+  tankYaw = Math.max(-1.3, Math.min(1.3, -nx*1.3));   // mouse left -> turn left
+  tankPitch = Math.max(-0.5, Math.min(0.5, -ny*0.5)); // mouse up -> look up
+  camera.rotation.y = tankYaw; camera.rotation.x = tankPitch;
+});
+function requestTankMouseLook(){ /* no-op: continuous look above needs no lock/activation */ }
 
 function killFish(f){
   sfx.kill();
@@ -970,6 +1272,7 @@ function killFish(f){
 
 function damagePlayer(amount, poison){
   if(!state.alive) return;
+  if(state.inTank) return; // safe from all fish while piloting the tank
   state.hp -= amount;
   flash.style.opacity=0.5; setTimeout(()=>flash.style.opacity=0,150);
   if(poison) state.poisonUntil = performance.now()+5000;
@@ -986,8 +1289,17 @@ function gameOver(){
 }
 function restart(){
   clearProgress();
-  state = {hp:100,coins:0,kills:0,owned:{fist:true},current:'fist',ammo:0,bombs:0,poisonUntil:0,stunUntil:0,alive:true,lastAttack:0,started:true,paused:false};
+  state = {hp:100,coins:0,kills:0,owned:{fist:true},current:'fist',ammo:0,bombs:0,inTank:false,poisonUntil:0,stunUntil:0,alive:true,lastAttack:0,started:true,paused:false};
   updateHandIcon();
+  document.getElementById('tankExitBtn').classList.add('hidden');
+  tankDriveControls.classList.add('hidden');
+  document.getElementById('tankExplodeBtn').classList.add('hidden');
+  document.getElementById('tankCockpit').classList.remove('active');
+  clearRocks();
+  clearTankScenery();
+  if(inVoxelWorld) exitMinecraftPortal();
+  camera.position.copy(HOME_POSITION);
+  camera.rotation.set(0,0,0); tankYaw=0; tankPitch=0;
   if(currentFish){ scene.remove(currentFish); currentFish=null; }
   bgFish.forEach(f=>scene.remove(f)); bgFish=[];
   nextSpawnAt = performance.now()+500;
@@ -1046,8 +1358,10 @@ function loop(){
         if(now - f.userData.lastBite >= 1300){
           sfx.bite();
           damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
-          if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung again!'); }
-          else showToast('🩸 It won\'t let go!');
+          if(!state.inTank){
+            if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung again!'); }
+            else showToast('🩸 It won\'t let go!');
+          }
           f.userData.lastBite = now;
         }
       } else {
@@ -1079,8 +1393,10 @@ function loop(){
         if(f.position.distanceTo(camera.position) <= CONTACT_OFFSET+0.8){
           sfx.bite();
           damagePlayer(f.userData.dmg || cfg.dmg, !!cfg.poison);
-          if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung! You are stunned!'); }
-          else showToast('🩸 The fish bit you!');
+          if(!state.inTank){
+            if(cfg.stun){ state.stunUntil = now+1500; showToast('🪼 Stung! You are stunned!'); }
+            else showToast('🩸 The fish bit you!');
+          }
           f.userData.engaged = true;
           f.userData.lastBite = now;
         }
@@ -1112,6 +1428,52 @@ function loop(){
       f.lookAt(camera.position);
     });
 
+    if(state.inTank && !inVoxelWorld){
+      const moveSpeed = 14*delta;
+      const forward = new THREE.Vector3(-Math.sin(tankYaw), 0, -Math.cos(tankYaw));
+      const right = new THREE.Vector3(Math.cos(tankYaw), 0, -Math.sin(tankYaw));
+      if(driveState.forward) camera.position.addScaledVector(forward, moveSpeed);
+      if(driveState.back) camera.position.addScaledVector(forward, -moveSpeed);
+      if(driveState.left) camera.position.addScaledVector(right, -moveSpeed);
+      if(driveState.right) camera.position.addScaledVector(right, moveSpeed);
+      camera.position.x = Math.max(-95, Math.min(95, camera.position.x));
+      camera.position.z = Math.max(-115, Math.min(25, camera.position.z));
+      floor.position.x = camera.position.x; floor.position.z = camera.position.z; // ocean floor follows you — feels infinite
+      for(let i=rocks.length-1;i>=0;i--){
+        const rock = rocks[i];
+        if(camera.position.distanceTo(rock.position) < (rock.userData.radius+2.2)){
+          sfx.explosion();
+          spawnExplosion(rock.position.clone(), 0xffaa33, true);
+          scene.remove(rock); rocks.splice(i,1);
+        }
+      }
+      tankScenery.forEach(m=>{
+        if(m.userData.bob===undefined) return; // only mermaids animate
+        const distToPlayer = m.position.distanceTo(camera.position);
+        if(distToPlayer < 25){
+          // close enough: swim toward the player
+          const dir = camera.position.clone().sub(m.position).normalize();
+          m.position.addScaledVector(dir, 3*delta);
+          m.lookAt(camera.position);
+        } else {
+          // patrol a lazy loop near the shipwreck
+          m.position.x = m.userData.baseX + Math.sin(now*0.0007 + m.userData.swimPhase)*5;
+          m.position.z = m.userData.baseZ + Math.cos(now*0.0005 + m.userData.swimPhase)*5;
+          m.rotation.y = now*0.0006 + m.userData.swimPhase;
+        }
+        m.position.y += Math.sin(now*0.002+m.userData.bob)*0.003;
+      });
+      if(portalMesh){
+        portalMesh.children[0].rotation.z += delta*0.6;
+        portalMesh.children[1].material.opacity = 0.35 + 0.25*Math.abs(Math.sin(now*0.003));
+        if(camera.position.distanceTo(portalMesh.position) < portalMesh.userData.radius){
+          enterMinecraftPortal();
+        }
+      }
+    } else {
+      floor.position.x = 0; floor.position.z = 0;
+    }
+
     if(now < state.poisonUntil && now - lastPoisonTick > 1000){
       lastPoisonTick = now; damagePlayer(2,false);
     }
@@ -1125,7 +1487,7 @@ function loop(){
   seaweeds.forEach(s=>{ s.mesh.rotation.z = Math.sin(now*0.0015 + s.offset)*0.15; });
   bubbles.forEach(b=>{ b.position.y += delta*0.6; if(b.position.y>6){b.position.y=-6; b.position.x=(Math.random()-0.5)*20; b.position.z=-Math.random()*40;} });
 
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 updateHUD();
 updateHandIcon();
