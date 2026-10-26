@@ -109,6 +109,21 @@
 <div id="mcPortalOverlay" class="hidden" style="position:fixed;inset:0;z-index:30;background:#000;">
   <iframe id="mcFrame" src="" allow="pointer-lock; fullscreen" style="width:100%;height:100%;border:none;display:block;"></iframe>
   <button id="mcLeaveBtn" style="position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;z-index:31;background:#ff4d6d;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;">← Leave Portal</button>
+  <div id="mcMoveControls" style="position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:14px;z-index:31;display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:4px;">
+    <div></div><button class="lookBtn" data-mckey="w">▲</button><div></div>
+    <button class="lookBtn" data-mckey="a">◀</button><div></div><button class="lookBtn" data-mckey="d">▶</button>
+    <div></div><button class="lookBtn" data-mckey="s">▼</button><div></div>
+  </div>
+  <div id="mcLookControls" style="position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));right:14px;z-index:31;display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:4px;">
+    <div></div><button class="lookBtn" data-mckey="ArrowUp">▲</button><div></div>
+    <button class="lookBtn" data-mckey="ArrowLeft">◀</button><div></div><button class="lookBtn" data-mckey="ArrowRight">▶</button>
+    <div></div><button class="lookBtn" data-mckey="ArrowDown">▼</button><div></div>
+  </div>
+  <div id="mcActionControls" style="position:fixed;bottom:calc(120px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:31;display:flex;gap:10px;">
+    <button class="lookBtn" id="mcJumpBtn" style="width:56px;height:56px;border-radius:50%;font-size:18px;">⬆</button>
+    <button class="lookBtn" id="mcMineBtn" style="width:56px;height:56px;border-radius:50%;font-size:18px;">⛏️</button>
+    <button class="lookBtn" id="mcPlaceBtn" style="width:56px;height:56px;border-radius:50%;font-size:18px;">🧱</button>
+  </div>
 </div>
 <div id="flappyOverlay" class="modal hidden" style="background:#000;">
   <canvas id="flappyCanvas" style="width:100%;height:100%;display:block;"></canvas>
@@ -1051,6 +1066,58 @@ function exitMinecraftPortal(){
   document.getElementById('mcFrame').src = 'about:blank'; // stop its game loop while hidden
 }
 document.getElementById('mcLeaveBtn').onclick = exitMinecraftPortal;
+
+// ---- Mobile controls for the embedded Minecraft game: synthesize the real key/mouse events
+// it already listens for internally (it has zero native touch support of its own) ----
+function mcSendKey(type, key){
+  const win = document.getElementById('mcFrame').contentWindow;
+  if(!win) return;
+  try{
+    win.document.dispatchEvent(new KeyboardEvent(type, {key, bubbles:true}));
+  }catch(e){}
+}
+function mcSendMouse(type, button){
+  const frame = document.getElementById('mcFrame');
+  const win = frame.contentWindow;
+  if(!win) return;
+  try{
+    const target = win.document.getElementById('overlay') || win.document;
+    target.dispatchEvent(new MouseEvent(type, {button, bubbles:true}));
+  }catch(e){}
+}
+function mcBindHoldKey(btn, key){
+  const down = e=>{ if(e.cancelable) e.preventDefault(); mcSendKey('keydown', key); };
+  const up = ()=> mcSendKey('keyup', key);
+  btn.addEventListener('touchstart', down, {passive:false});
+  btn.addEventListener('touchend', up);
+  btn.addEventListener('mousedown', down);
+  btn.addEventListener('mouseup', up);
+  btn.addEventListener('mouseleave', up);
+}
+document.querySelectorAll('#mcMoveControls .lookBtn, #mcLookControls .lookBtn').forEach(btn=>{
+  mcBindHoldKey(btn, btn.dataset.mckey);
+});
+mcBindHoldKey(document.getElementById('mcJumpBtn'), ' ');
+(function(){
+  const btn = document.getElementById('mcMineBtn');
+  const down = e=>{ if(e.cancelable) e.preventDefault(); mcSendMouse('mousedown', 0); };
+  const up = ()=> mcSendMouse('mouseup', 0);
+  btn.addEventListener('touchstart', down, {passive:false});
+  btn.addEventListener('touchend', up);
+  btn.addEventListener('mousedown', down);
+  btn.addEventListener('mouseup', up);
+  btn.addEventListener('mouseleave', up);
+})();
+(function(){
+  const btn = document.getElementById('mcPlaceBtn');
+  const down = e=>{ if(e.cancelable) e.preventDefault(); mcSendMouse('mousedown', 2); };
+  const up = ()=> mcSendMouse('mouseup', 2);
+  btn.addEventListener('touchstart', down, {passive:false});
+  btn.addEventListener('touchend', up);
+  btn.addEventListener('mousedown', down);
+  btn.addEventListener('mouseup', up);
+  btn.addEventListener('mouseleave', up);
+})();
 
 // ---- Portal destination: a self-contained Flappy Bird-style mini-game ----
 let flappyActive = false, flappyCtx = null, flappyCanvasEl = null;
