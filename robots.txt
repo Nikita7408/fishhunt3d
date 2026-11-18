@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nikita7408.github.io/fishhunt3d/sitemap.xml
